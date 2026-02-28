@@ -1,0 +1,78 @@
+# ============================================
+# .gitignore - ESFP Córdoba ISO Builder
+# ============================================
+
+# --------------------
+# DIRECTORIOS DE TRABAJO (generados por el script)
+# --------------------
+custom_esfp/
+isohome/
+temp_initrd/
+verify_initrd/
+
+# --------------------
+# ARCHIVOS PESADOS / BINARIOS
+# --------------------
+*.iso
+*.img
+*.qcow2
+*.vmdk
+*.vdi
+
+# --------------------
+# ARCHIVOS COMPRIMIDOS Y CHECKSUMS
+# --------------------
+*.gz
+*.bz2
+*.xz
+*.zip
+*.md5
+*.sha256
+*.sha1
+
+# --------------------
+# ARCHIVOS .DEB (paquetes)
+# --------------------
+*.deb
+
+# --------------------
+# BACKUPS Y ARCHIVOS TEMPORALES
+# --------------------
+*.bak
+*.orig
+*.tmp
+*.swp
+*.swo
+*~
+
+# --------------------
+# LOGS
+# --------------------
+*.log
+logs/
+
+# --------------------
+# EDITORES
+# --------------------
+# VSCode
+.vscode/
+# JetBrains
+.idea/
+# Vim
+*.vim.bak
+# Emacs
+\#*\#
+.\#*
+
+# --------------------
+# SISTEMA OPERATIVO
+# --------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.directory
+
+# --------------------
+# PUNTOS DE MONTAJE (no deben commitearse)
+# --------------------
+/mnt/

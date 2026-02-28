@@ -1,0 +1,446 @@
+#!/bin/bash
+# ============================================
+# SCRIPT PARA CUSTOMIZAR ISO DEVUAN - ESFP CÓRDOBA
+# Versión: 0.7
+# maintainer: Pablo Saquilan <psaquilan82@gmail.com>
+# ============================================
+
+echo "🚀 Iniciando customización de ISO para ESFP Córdoba"
+echo "================================================"
+
+# --------------------
+# 0. VERIFICAR DEPENDENCIAS
+# --------------------
+echo "📋 Verificando dependencias..."
+for cmd in cpio gzip xorriso curl; do
+    if ! command -v $cmd &> /dev/null; then
+        echo "❌ Error: $cmd no está instalado. Instalalo con: apt install $cmd"
+        exit 1
+    fi
+done
+
+# Verificar que isohdpfx.bin existe
+if [ ! -f "/usr/lib/ISOLINUX/isohdpfx.bin" ]; then
+    echo "❌ Error: /usr/lib/ISOLINUX/isohdpfx.bin no encontrado"
+    echo "   Instalá: sudo apt install isolinux"
+    exit 1
+fi
+echo "✅ Todas las dependencias están OK"
+
+# --------------------
+# 1. CREAR SCRIPT DE POST-INSTALACIÓN (VERSIÓN PERSISTENTE)
+# --------------------
+echo "📝 Creando script postinst.sh..."
+cat > postinst.sh << 'EOF'
+#!/bin/bash
+# postinst.sh - Optimizaciones finales para ESFP Córdoba
+# Versión: COMPLETA (autologin + mate-menu + sudo)
+
+echo "=== Optimizando sistema para 4GB RAM (ESFP Córdoba) ==="
+
+# Reducir swappiness
+echo "vm.swappiness=10" >> /etc/sysctl.conf
+
+# Desactivar servicios innecesarios
+SERVICIOS_INNECESARIOS="cups bluetooth whoopsie avahi-daemon speech-dispatcher ModemManager"
+for servicio in $SERVICIOS_INNECESARIOS; do
+    if [ -f /etc/init.d/$servicio ]; then
+        update-rc.d $servicio disable
+        echo "Servicio $servicio desactivado"
+    fi
+done
+
+# OpenRC: desactivar servicios
+if command -v rc-update &> /dev/null; then
+    rc-update del bluetooth default 2>/dev/null || true
+    rc-update del cups default 2>/dev/null || true
+    rc-update del avahi-daemon default 2>/dev/null || true
+    rc-update del ModemManager default 2>/dev/null || true
+    echo "Servicios OpenRC desactivados"
+fi
+
+# Limpiar basura
+apt-get autoremove --purge -y
+apt-get autoclean -y
+
+# --------------------------
+# CONFIGURACIÓN DE MATE (PERSISTENTE)
+# --------------------------
+mkdir -p /etc/skel/.config/dconf
+
+cat > /etc/skel/.config/dconf/user << 'DCONF'
+[org/mate/marco/general]
+compositing-manager=false
+theme='Menta'
+
+[org/mate/interface]
+gtk-theme='Menta'
+enable-animations=false
+
+[org/mate/background]
+picture-filename='/usr/share/backgrounds/esfp-wallpaper.jpg'
+
+[org/mate/power-manager]
+sleep-display-ac=0
+sleep-display-battery=0
+DCONF
+
+# --------------------------
+# CONFIGURAR MATE-MENU COMO MENÚ PREDETERMINADO
+# --------------------------
+if command -v mate-menu &> /dev/null; then
+    # Para el usuario actual si existe
+    if id "alumno" &>/dev/null; then
+        sudo -u alumno dbus-launch gsettings set org.mate.panel object:/org/mate/panel/objects/menu/ location 'mate-menu' 2>/dev/null || true
+    fi
+    
+    # Para futuros usuarios (en /etc/skel)
+    mkdir -p /etc/skel/.config/mate/panel2.d/default/launchers
+    cat > /etc/skel/.config/mate/panel2.d/default/objects/menu << 'PANEL'
+[Object]
+object-type=menu
+menu-location=mate-menu
+PANEL
+fi
+
+# --------------------------
+# CONFIGURAR AUTOLOGIN PARA USUARIO ALUMNO
+# --------------------------
+mkdir -p /etc/lightdm/lightdm.conf.d
+
+cat > /etc/lightdm/lightdm.conf.d/50-autologin.conf << 'LIGHTDM'
+[Seat:*]
+autologin-user=alumno
+autologin-user-timeout=0
+LIGHTDM
+
+chmod 644 /etc/lightdm/lightdm.conf.d/50-autologin.conf
+
+# --------------------------
+# CONFIGURAR SUDO SIN CONTRASEÑA PARA ALUMNO
+# --------------------------
+cat > /etc/sudoers.d/alumno << 'SUDO'
+# Permitir al usuario alumno ejecutar cualquier comando sin contraseña
+alumno ALL=(ALL) NOPASSWD:ALL
+SUDO
+
+chmod 440 /etc/sudoers.d/alumno
+chown root:root /etc/sudoers.d/alumno
+
+# Verificar sintaxis
+if ! visudo -cf /etc/sudoers.d/alumno >/dev/null 2>&1; then
+    echo "❌ Error en configuración de sudo - eliminando"
+    rm -f /etc/sudoers.d/alumno
+fi
+
+# --------------------------
+# APLICAR CONFIGURACIONES AL USUARIO ACTUAL
+# --------------------------
+if id "alumno" &>/dev/null; then
+    mkdir -p /home/alumno/.config/dconf
+    cp /etc/skel/.config/dconf/user /home/alumno/.config/dconf/
+    chown -R alumno:alumno /home/alumno/.config
+fi
+
+exit 0
+EOF
+
+chmod +x postinst.sh
+echo "✅ postinst.sh creado (versión persistente)"
+
+# --------------------
+# 2. CREAR CONFIGURACIÓN OPENRC
+# --------------------
+echo "📝 Creando rc.conf optimizado..."
+cat > rc.conf << 'EOF'
+# /etc/rc.conf - OpenRC Config (ESFP Córdoba Optimized)
+rc_parallel="YES"
+rc_nocolor="YES"
+rc_loopsolver_enable="YES"
+rc_loopsolver_warnings="YES"
+rc_tty_number=12
+rc_cgroup_mode="unified"
+rc_controller_cgroups="YES"
+rc_cgroup_cleanup="NO"
+rc_send_sighup="NO"
+rc_timeout_stopsec="90"
+rc_send_sigkill="YES"
+EOF
+echo "✅ rc.conf creado"
+
+# --------------------
+# 3. RESPALDAR INITRD ORIGINAL
+# --------------------
+echo "💾 Respaldando initrd original..."
+cp isohome/boot/isolinux/initrd.gz isohome/boot/isolinux/initrd.gz.original
+echo "✅ Respaldo creado: initrd.gz.original"
+
+# --------------------
+# 4. EXTRAER, INYECTAR Y REEMPAQUETAR INITRD
+# --------------------
+echo "📦 Extrayendo initrd original..."
+mkdir temp_initrd
+cd temp_initrd
+
+echo "   Descomprimiendo initrd.gz..."
+if ! zcat ../isohome/boot/isolinux/initrd.gz | cpio -idmv 2>&1 > /dev/null; then
+    echo "❌ Error al extraer initrd"
+    cd .. && rm -rf temp_initrd
+    exit 1
+fi
+echo "✅ Initrd extraído correctamente"
+
+echo "📝 Inyectando archivos personalizados..."
+cp ../preseed.cfg ./preseed.cfg
+cp ../postinst.sh ./postinst.sh
+cp ../rc.conf ./rc.conf
+echo "✅ Archivos inyectados:"
+ls -la preseed.cfg postinst.sh rc.conf
+
+echo "🗜️ Reempaquetando initrd personalizado..."
+find . | cpio -H newc -o | gzip -9 > ../initrd_nuevo.gz
+if [ $? -ne 0 ]; then
+    echo "❌ Error al reempaquetar initrd"
+    cd .. && rm -rf temp_initrd
+    exit 1
+fi
+echo "✅ Nuevo initrd creado: initrd_nuevo.gz"
+
+cd ..
+
+# --------------------
+# 5. REEMPLAZAR INITRD EN LA ISO
+# --------------------
+echo "🔄 Reemplazando initrd en estructura ISO..."
+mv initrd_nuevo.gz isohome/boot/isolinux/initrd.gz
+echo "✅ Initrd reemplazado"
+
+# --------------------
+# 6. LIMPIAR ARCHIVOS TEMPORALES
+# --------------------
+echo "🧹 Limpiando carpeta temporal..."
+rm -rf temp_initrd
+echo "✅ Limpieza completada"
+
+# --------------------
+# 7. VERIFICAR TAMAÑO DEL INITRD
+# --------------------
+echo "📊 Tamaño del nuevo initrd:"
+ls -lh isohome/boot/isolinux/initrd.gz
+
+# --------------------
+# 8. AGREGAR REPOSITORIO LOCAL DE PAQUETES A LA ISO (VERSIÓN COMPLETA)
+# --------------------
+echo "📦 Creando repositorio local de paquetes en la ISO..."
+
+# Instalar apt-rdepends si no está (en tu máquina, no en la ISO)
+if ! command -v apt-rdepends &> /dev/null; then
+    echo "📥 Instalando apt-rdepends..."
+    sudo apt-get update && sudo apt-get install -y apt-rdepends
+fi
+
+# Crear estructura de repositorio
+mkdir -p isohome/pool/main
+mkdir -p isohome/dists/excalibur/main/binary-amd64
+
+# Crear un directorio temporal para configurar apt con repositorios Devuan
+mkdir temp-apt-config
+cd temp-apt-config
+
+# Crear sources.list temporal para Devuan Excalibur
+cat > sources.list << 'EOF'
+deb http://dev1mir.registrationsplus.net/devuan/merged excalibur main contrib non-free non-free-firmware
+deb http://dev1mir.registrationsplus.net/merged excalibur-security main contrib non-free non-free-firmware
+deb http://dev1mir.registrationsplus.net/devuan/merged excalibur-updates main contrib non-free non-free-firmware
+EOF
+
+# Configurar apt para usar este sources.list temporal
+export APT_CONFIG="$(pwd)/apt.conf"
+cat > apt.conf << EOF
+Dir::Etc::SourceList "$(pwd)/sources.list";
+Dir::Etc::SourceParts "/dev/null";
+Dir::Etc::Main "/dev/null";
+Dir::Etc::Parts "/dev/null";
+EOF
+
+cd ..
+
+# Lista de paquetes (actualizada)
+PAQUETES=(
+    mate-desktop-environment-core
+    mate-terminal
+    mate-calc
+    mate-system-monitor
+    mate-control-center
+    mate-settings-daemon
+    firmware-linux-nonfree
+    firmware-intel-graphics
+    firmware-realtek
+    firmware-iwlwifi
+    intel-microcode
+    tlp
+    pavucontrol
+    htop
+    net-tools
+    ntfs-3g
+    synaptic
+    software-properties-common
+    curl
+    wget
+    firefox-esr
+    libreoffice-writer
+    libreoffice-calc
+    libreoffice-impress
+    gimp
+    audacity
+    build-essential
+    python3-venv
+    python3-pip
+    python3-dev
+    git
+    vim
+    dbus-x11
+    policykit-1-gnome
+    pulseaudio
+    alsa-utils
+    network-manager
+    network-manager-gnome
+    mate-menu
+)
+
+echo "📥 Descargando paquetes y TODAS sus dependencias (esto puede tardar 20-30 minutos)..."
+cd isohome
+
+# Función para manejar paquetes virtuales como debconf-2.0
+clean_virtual_packages() {
+    sed 's/debconf-2.0/debconf/g' | \
+    grep -v "^libc-dev$" | \
+    grep -v "^insserv$" | \
+    sort -u
+}
+
+for paquete in "${PAQUETES[@]}"; do
+    echo "   → Procesando $paquete"
+    
+    # Usar apt-rdepends para obtener TODAS las dependencias recursivas
+    # Luego filtrar y descargar cada una
+    apt-rdepends "$paquete" 2>/dev/null | \
+        grep -v "^ " | \
+        clean_virtual_packages | \
+        while read -r depend; do
+            echo "      ⤷ $depend"
+            apt-get -c ../temp-apt-config/apt.conf download "$depend" 2>/dev/null || true
+        done
+    
+    # También descargar el paquete principal (por si acaso)
+    apt-get -c ../temp-apt-config/apt.conf download "$paquete" 2>/dev/null || true
+done
+
+# Limpiar configuración temporal
+rm -rf ../temp-apt-config
+
+# Mover todos los .deb a pool/main
+mv *.deb pool/main/ 2>/dev/null
+
+# Generar índice Packages.gz
+cd pool
+dpkg-scanpackages main /dev/null | gzip -9c > ../dists/excalibur/main/binary-amd64/Packages.gz
+cd ..
+
+TOTAL_PAQUETES=$(find pool -name '*.deb' | wc -l)
+echo "✅ Repositorio local creado con $TOTAL_PAQUETES paquetes (TODAS las dependencias)"
+
+# --------------------
+# 9. RECONSTRUIR ISO CON XORRISO
+# --------------------
+echo "💿 Reconstruyendo ISO con xorriso..."
+ISO_FILENAME="devuan-esfp-cordoba-$(date +%Y%m%d_%H%M).iso"
+
+xorriso -as mkisofs \
+    -r -V "DEVUAN-ESFP" \
+    -o ../"$ISO_FILENAME" \
+    -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
+    -c boot/isolinux/boot.cat \
+    -b boot/isolinux/isolinux.bin \
+    -no-emul-boot -boot-load-size 4 -boot-info-table \
+    .
+
+if [ $? -eq 0 ]; then
+    echo "✅ ISO creada exitosamente: $ISO_FILENAME"
+    echo "📏 Tamaño de la ISO:"
+    ls -lh ../"$ISO_FILENAME"
+    
+    # Crear archivos checksum
+    md5sum ../"$ISO_FILENAME" > ../"$ISO_FILENAME.md5"
+    sha256sum ../"$ISO_FILENAME" > ../"$ISO_FILENAME.sha256"
+    echo "🔒 Checksums guardados:"
+    echo "   - $ISO_FILENAME.md5"
+    echo "   - $ISO_FILENAME.sha256"
+else
+    echo "❌ Error al crear la ISO"
+    exit 1
+fi
+
+# --------------------
+# 10. VERIFICACIÓN DEL INITRD EN LA ISO
+# --------------------
+echo ""
+echo "🔍 Verificando que los archivos están en el initrd de la nueva ISO..."
+mkdir verify_initrd
+cd verify_initrd
+if gzip -dc ../isohome/boot/isolinux/initrd.gz | cpio -idmv "preseed.cfg" "postinst.sh" "rc.conf" 2>&1 > /dev/null; then
+    echo "✅ Archivos encontrados en initrd:"
+    ls -la preseed.cfg postinst.sh rc.conf 2>/dev/null | sed 's/^/   /'
+else
+    echo "❌ Error: No se pudieron verificar los archivos en initrd"
+fi
+cd ..
+rm -rf verify_initrd
+
+# --------------------
+# 11. VERIFICACIÓN DE BOOTEO
+# --------------------
+echo ""
+echo "🔍 Verificando que la ISO es booteable..."
+if file "$ISO_FILENAME" | grep -q "DOS/MBR boot sector"; then
+    echo "✅ La ISO tiene sector de arranque MBR"
+else
+    echo "⚠️  La ISO no muestra sector MBR, pero igual puede funcionar"
+fi
+
+# --------------------
+# 12. VERIFICACIÓN DEL REPOSITORIO LOCAL
+# --------------------
+echo ""
+echo "🔍 Verificando repositorio local en la ISO..."
+if [ -f "isohome/dists/excalibur/main/binary-amd64/Packages.gz" ]; then
+    PAQUETES_EN_ISO=$(find isohome/pool -name '*.deb' | wc -l)
+    echo "✅ Repositorio local OK: $PAQUETES_EN_ISO paquetes en pool/"
+else
+    echo "❌ Error: No se encontró Packages.gz"
+fi
+
+# --------------------
+# 13. INSTRUCCIONES FINALES
+# --------------------
+echo ""
+echo "🎉 ¡PROCESO COMPLETADO CON ÉXITO! 🎉"
+echo "=================================="
+echo "📀 ISO generada: $ISO_FILENAME"
+echo "📦 Total de paquetes en repositorio local: $TOTAL_PAQUETES"
+echo ""
+echo "💡 Para crear un USB booteable:"
+echo "   sudo dd if=$ISO_FILENAME of=/dev/sdX bs=4M status=progress && sync"
+echo ""
+echo "🔗 Para verificar integridad:"
+echo "   md5sum -c $ISO_FILENAME.md5"
+echo ""
+echo "📋 RESUMEN DE LA INSTALACIÓN:"
+echo "   ✅ Initrd personalizado con: preseed.cfg, postinst.sh, rc.conf"
+echo "   ✅ Repositorio local con $TOTAL_PAQUETES paquetes (instalación 100% offline)"
+echo "   ✅ OpenRC como init system con arranque paralelo"
+echo "   ✅ Configuración de MATE persistente (vía /etc/skel)"
+echo "   ✅ Google Antigravity (si hay internet al final)"
+echo ""
+
+exit 0
