@@ -500,7 +500,7 @@ file "$WORKDIR/$ISO_FILENAME" | grep -q "DOS/MBR boot sector" && \
 echo ""
 echo "🎉 ¡PROCESO COMPLETADO CON ÉXITO! 🎉"
 echo "=================================="
-echo "📀 ISO generada: $WORKDIR/$ISO_FILENAME"
+echo "📀 ISO generada: $WORKDIR/$ISO_FILENAME ($(du -sh "$WORKDIR/$ISO_FILENAME" | cut -f1))"
 echo "📦 Total paquetes: $TOTAL_PAQUETES"
 echo ""
 echo "💡 Para USB: sudo dd if='$WORKDIR/$ISO_FILENAME' of=/dev/sdX bs=4M status=progress && sync"
