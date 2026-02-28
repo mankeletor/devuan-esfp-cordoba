@@ -132,7 +132,7 @@ relative-to-edge='end'
 toplevel-id='top'
 
 [org/mate/panel/objects/clock/prefs]
-cities=['<location name="" city="Córdoba" timezone="America/Argentina/Buenos_Aires" latitude="-31.316668" longitude="-64.216667" code="SACO" current="true"/>']
+cities=['<location name="" city="Córdoba" timezone="America/Argentina/Cordoba" latitude="-31.316668" longitude="-64.216667" code="SACO" current="true"/>']
 expand-locations=true
 format='24-hour'
 

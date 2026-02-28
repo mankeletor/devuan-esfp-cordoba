@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================
 # SCRIPT PARA CUSTOMIZAR ISO DEVUAN - ESFP CÓRDOBA
-# Versión: 0.10
+# Versión: 0.10.1
 # maintainer: Pablo Saquilan <psaquilan82@gmail.com>
 # ============================================
 
