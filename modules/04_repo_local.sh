@@ -1,7 +1,8 @@
 #!/bin/bash
 # modules/04_repo_local.sh
+# Lógica Híbrida V10: Extracción Xorriso + Indexación Monolith (dpkg-scanpackages)
 
-echo "📦 [Modulo 04] Creando repositorio local Pool1..."
+echo "📦 [Modulo 04] Creando repositorio local (Lógica Monolith V10)..."
 
 # Cargar configuración
 [ -z "$ISO_HOME" ] && source ./config.env
@@ -20,9 +21,8 @@ else
     exit 1
 fi
 
-# Añadir obligatorios y pre-dependencias criticas (Boris V6.2)
-# Se elimino multiload-ng por no estar en los repositorios oficiales
-for critical in mate-menu mate-desktop-environment-extras mate-applets bash-completion sudo zlib1g libeudev1 libc6 libgcc-s1; do
+# Añadir obligatorios y pre-dependencias criticas (V10)
+for critical in mate-menu mate-desktop-environment-extras mate-applets bash-completion sudo zlib1g libeudev1 libc6 libgcc-s1 vlc vlc-plugin-base; do
     if [[ ! " ${PAQUETES[@]} " =~ " $critical " ]]; then
         PAQUETES+=("$critical")
     fi
@@ -60,20 +60,22 @@ for pkg in "${PAQUETES[@]}"; do
     fi
 done
 
-# 3. Generar Indices de Apt con apt-ftparchive (Modelo Boris/Cisterna V9)
-echo "   Generando indices de Apt robustos con apt-ftparchive..."
+# 3. Generar Indices de Apt (Lógica Monolith V10)
+echo "   Generando indices con dpkg-scanpackages..."
 cd "$ISO_HOME"
 
-# a. Generar archivo Packages
-apt-ftparchive packages pool/main > dists/excalibur/main/binary-amd64/Packages
-gzip -c dists/excalibur/main/binary-amd64/Packages > dists/excalibur/main/binary-amd64/Packages.gz
+# dpkg-scanpackages desde la raíz para que las rutas en Packages.gz sean relativas (pool/main/...)
+dpkg-scanpackages pool/main /dev/null | gzip -9c > dists/excalibur/main/binary-amd64/Packages.gz
 
-# b. Generar metadatos para el instalador
+# Refuerzo: también Packages sin comprimir
+zcat dists/excalibur/main/binary-amd64/Packages.gz > dists/excalibur/main/binary-amd64/Packages
+
+# Vacío para debian-installer por compatibilidad
 touch dists/excalibur/main/debian-installer/binary-amd64/Packages
 gzip -c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
 
-# c. Generar los archivos Release CRITICOS para debootstrap (V9)
-echo "   Generando archivos Release v9..."
+# c. Generar los archivos Release CRITICOS (V10)
+echo "   Generando archivos Release v10..."
 cat > apt-release.conf << EOF
 APT::FTPArchive::Release::Origin "Devuan";
 APT::FTPArchive::Release::Label "Devuan";
@@ -84,16 +86,15 @@ APT::FTPArchive::Release::Components "main";
 APT::FTPArchive::Release::Description "ESFP Cordoba Local Repository";
 EOF
 
-# 1. Release del componente
+# Release del componente
 apt-ftparchive -c apt-release.conf release dists/excalibur/main/binary-amd64/ > dists/excalibur/main/binary-amd64/Release
-
-# 2. Release principal de la suite
+# Release principal
 apt-ftparchive -c apt-release.conf release dists/excalibur/ > dists/excalibur/Release
 
 rm apt-release.conf
 
-# d. Integrar GPG Keyrings (V9)
-echo "   Inyectando llaves GPG para autenticacion local..."
+# d. Integrar GPG Keyrings (V10)
+echo "   Inyectando llaves GPG del sistema..."
 mkdir -p "$ISO_HOME/etc/apt/trusted.gpg.d"
 cp /usr/share/keyrings/*.gpg "$ISO_HOME/etc/apt/trusted.gpg.d/" 2>/dev/null
 
@@ -101,4 +102,4 @@ cp /usr/share/keyrings/*.gpg "$ISO_HOME/etc/apt/trusted.gpg.d/" 2>/dev/null
 rm -rf "$EXTRACT_DIR"
 cd "$WORKDIR"
 
-echo "✅ Repositorio local Apt configurado (V9 robusto con GPG)"
+echo "✅ Repositorio local Apt configurado (Lógica Monolith V10)"
