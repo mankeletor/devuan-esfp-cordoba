@@ -2,7 +2,7 @@
 # main.sh - Orquestador ESFP Córdoba ISO Customizer
 # Licencia: GNU GPL v3
 # Filosofía: KISS / Modular
-VERSION="0.99rc6"
+VERSION="0.99rc6.2"
 
 # 1. Cargar Configuración
 if [ ! -f ./config.env ]; then
