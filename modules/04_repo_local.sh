@@ -48,31 +48,43 @@ else
     echo "   ⚠️ Advertencia: No se encontraron paquetes en Pool1. Intentando descargar faltantes..."
 fi
 
-echo "   Moviendo paquetes al repositorio local de la ISO..."
-for pkg in "${PAQUETES[@]}"; do
-    DEB=$(find "$EXTRACT_DIR" -name "${pkg}_*.deb" | head -1)
+echo "   Procesando paquetes (Multi-threading: $THREADS)..."
+export EXTRACT_DIR ISO_HOME THREADS
+process_pkg() {
+    local pkg=$1
+    local DEB=$(find "$EXTRACT_DIR" -name "${pkg}_*.deb" | head -1)
     if [ -n "$DEB" ]; then
         cp "$DEB" "$ISO_HOME/pool/main/" 2>/dev/null
     else
-        # Si no esta en pool1, intentamos descargarlo (requiere internet en la maquina host)
-        echo "   → $pkg no encontrado en Pool1, intentando descargar via apt-get download..."
-        (cd "$ISO_HOME/pool/main/" && apt-get download "$pkg" -qq 2>/dev/null) || echo "   ❌ Error: $pkg no se pudo obtener"
+        echo "   → $pkg no en Pool1, descargando..."
+        (cd "$ISO_HOME/pool/main/" && apt-get download "$pkg" -qq 2>/dev/null) || echo "   ❌ Error: $pkg"
     fi
-done
+}
+export -f process_pkg
+
+printf "%s\n" "${PAQUETES[@]}" | xargs -I {} -P "$THREADS" bash -c 'process_pkg "$@"' _ {}
 
 # 3. Generar Indices de Apt (Lógica Monolith V10)
 echo "   Generando indices con dpkg-scanpackages..."
 cd "$ISO_HOME"
 
-# dpkg-scanpackages desde la raíz para que las rutas en Packages.gz sean relativas (pool/main/...)
-dpkg-scanpackages pool/main /dev/null | gzip -9c > dists/excalibur/main/binary-amd64/Packages.gz
+# a. Generar archivo Packages (Multi-threading: $THREADS)
+if command -v pigz > /dev/null 2>&1; then
+    dpkg-scanpackages pool/main /dev/null | pigz -p "$THREADS" -9c > dists/excalibur/main/binary-amd64/Packages.gz
+else
+    dpkg-scanpackages pool/main /dev/null | gzip -9c > dists/excalibur/main/binary-amd64/Packages.gz
+fi
 
 # Refuerzo: también Packages sin comprimir
 zcat dists/excalibur/main/binary-amd64/Packages.gz > dists/excalibur/main/binary-amd64/Packages
 
 # Vacío para debian-installer por compatibilidad
 touch dists/excalibur/main/debian-installer/binary-amd64/Packages
-gzip -c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
+if command -v pigz > /dev/null 2>&1; then
+    pigz -p "$THREADS" -c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
+else
+    gzip -c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
+fi
 
 # c. Generar los archivos Release CRITICOS (V10)
 echo "   Generando archivos Release v10..."
