@@ -7,9 +7,9 @@ echo "📋 [Módulo 01] Verificando dependencias y rutas..."
 [ -z "$ISO_ORIGINAL" ] && source ./config.env
 
 # 1. Verificar comandos necesarios
-for cmd in cpio gzip xorriso curl rsync wget awk sed dpkg-scanpackages; do
+for cmd in cpio gzip xorriso curl rsync wget awk sed dpkg-scanpackages apt-ftparchive; do
     if ! command -v $cmd &> /dev/null; then
-        echo "❌ Error: $cmd no está instalado. Instalalo con: apt install $cmd"
+        echo "❌ Error: $cmd no está instalado. Instalalo con: apt install $cmd apt-utils"
         exit 1
     fi
 done
