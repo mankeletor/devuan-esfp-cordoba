@@ -64,8 +64,12 @@ sed -i "s/PKGSEL_INJECT_MARKER/d-i pkgsel\/include string $PKGS_STRING/g" ./pres
 sed -i "s/^d-i pkgsel\/include string .*/d-i pkgsel\/include string $PKGS_STRING/g" ./preseed.cfg
 
 # 5. Reempaquetar
-echo "   Reempaquetando Initrd..."
-find . | cpio -H newc -o | gzip -9 > "$WORKDIR/initrd_nuevo.gz"
+echo "   Reempaquetando Initrd (Multi-threading: $THREADS)..."
+if command -v pigz > /dev/null 2>&1; then
+    find . | cpio -H newc -o | pigz -p "$THREADS" -9 > "$WORKDIR/initrd_nuevo.gz"
+else
+    find . | cpio -H newc -o | gzip -9 > "$WORKDIR/initrd_nuevo.gz"
+fi
 
 mv "$WORKDIR/initrd_nuevo.gz" "$local_initrd"
 cd "$WORKDIR"

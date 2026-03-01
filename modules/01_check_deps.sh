@@ -10,6 +10,7 @@ echo "📋 [Módulo 01] Verificando dependencias y rutas..."
 for cmd in cpio gzip xorriso curl rsync wget awk sed dpkg-scanpackages apt-ftparchive; do
     if ! command -v $cmd &> /dev/null; then
         echo "❌ Error: $cmd no está instalado. Instalalo con: apt install $cmd apt-utils"
+        echo "💡 Tip: Instala 'pigz' para acelerar la construcción con multi-threading."
         exit 1
     fi
 done
