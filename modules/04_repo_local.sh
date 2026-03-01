@@ -66,6 +66,7 @@ printf "%s\n" "${PAQUETES[@]}" | xargs -I {} -P "$THREADS" bash -c 'process_pkg 
 
 # 3. Generar Indices de Apt (Lógica Monolith V10)
 echo "   Generando indices con dpkg-scanpackages..."
+mkdir -p "$TMPDIR"
 cd "$ISO_HOME"
 
 # a. Generar archivo Packages (Multi-threading: $THREADS)
