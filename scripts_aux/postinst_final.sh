@@ -82,8 +82,11 @@ enable-animations=false
 gtk-decoration-layout=':minimize,maximize,close'
 
 [org/mate/desktop/background]
-picture-filename='/usr/share/backgrounds/desktop-background'
+color-shading-type='vertical-gradient'
+picture-filename='/usr/share/backgrounds/mate/nature/Aqua.jpg'
 picture-options='zoom'
+primary-color='rgb(88,145,188)'
+secondary-color='rgb(60,143,37)'
 
 [org/mate/power-manager]
 sleep-display-ac=0
@@ -97,8 +100,13 @@ event-sounds=true
 allow-amplification=true
 
 [org/mate/terminal/profiles/default]
+allow-bold=false
+background-color='#000000000000'
+background-darkness=0.84724689165186506
 background-type='transparent'
-background-darkness=0.85
+bold-color='#000000000000'
+foreground-color='#AAAAAAAAAAAA'
+palette='#2E2E34343636:#CCCC00000000:#4E4E9A9A0606:#C4C4A0A00000:#34346565A4A4:#757550507B7B:#060698209A9A:#D3D3D7D7CFCF:#555557575353:#EFEF29292929:#8A8AE2E23434:#FCFCE9E94F4F:#72729F9FCFCF:#ADAD7F7FA8A8:#3434E2E2E2E2:#EEEEEEEEECEC'
 use-theme-colors=false
 visible-name='Default'
 
