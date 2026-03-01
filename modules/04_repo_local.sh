@@ -62,14 +62,29 @@ done
 # 3. Generar Índices de Apt con apt-ftparchive (Modelo Boris/Cisterna)
 echo "   Generando índices de Apt robustos con apt-ftparchive..."
 cd "$ISO_HOME"
-# Crear el archivo Packages (sin comprimir) primero
+
+# a. Generar archivo Packages
 apt-ftparchive packages pool/main > dists/excalibur/main/binary-amd64/Packages
-# Generar la versión comprimida
 gzip -c dists/excalibur/main/binary-amd64/Packages > dists/excalibur/main/binary-amd64/Packages.gz
 
-# También para el instalador (udebs si los hubiera, o vacío por compatibilidad)
+# b. Generar metadatos para el instalador (vacio por compatibilidad)
 touch dists/excalibur/main/debian-installer/binary-amd64/Packages
 gzip -c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
+
+# c. Generar el archivo Release CRÍTICO para debootstrap
+echo "   Generando archivo Release para debootstrap..."
+cat > apt-release.conf << EOF
+APT::FTPArchive::Release::Origin "Devuan";
+APT::FTPArchive::Release::Label "Devuan";
+APT::FTPArchive::Release::Suite "excalibur";
+APT::FTPArchive::Release::Codename "excalibur";
+APT::FTPArchive::Release::Architectures "amd64";
+APT::FTPArchive::Release::Components "main";
+APT::FTPArchive::Release::Description "ESFP Cordoba Local Repository";
+EOF
+
+apt-ftparchive -c apt-release.conf release dists/excalibur/ > dists/excalibur/Release
+rm apt-release.conf
 
 # Limpiar temporales
 rm -rf "$EXTRACT_DIR"
