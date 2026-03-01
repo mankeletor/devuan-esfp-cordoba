@@ -12,6 +12,12 @@ update-locale LANG=es_AR.UTF-8
 # Reducir swappiness
 echo "vm.swappiness=10" >> /etc/sysctl.conf
 
+# --------------------------
+# PURGA DE TERMINALES X11 EXTRA (MATE Pure)
+# --------------------------
+echo "🗑️ Eliminando terminales innecesarias (xterm, uxterm)..."
+apt-get purge -y xterm uxterm 2>/dev/null || true
+
 # Desactivar servicios innecesarios
 SERVICIOS_INNECESARIOS="cups bluetooth whoopsie avahi-daemon speech-dispatcher ModemManager"
 for servicio in $SERVICIOS_INNECESARIOS; do
@@ -229,9 +235,23 @@ autologin-user-timeout=0
 EOF
 echo "✅ Autologin configurado."
 
-# Marcar la instalación
-echo "INSTALACIÓN ESFP-CÓRDOBA - $(date)" >> /etc/issue
-echo "✅ Sistema optimizado para ESFP Córdoba" >> /etc/motd
+# Aplicar los cambios a la base de datos de dconf ANTES de la limpieza
+if command -v dconf &>/dev/null; then
+    dconf update
+    echo "✅ dconf sistema-db actualizado"
+fi
+
+# Forzar la recarga de esquemas
+if command -v glib-compile-schemas &>/dev/null; then
+    glib-compile-schemas /usr/share/glib-2.0/schemas/
+fi
+
+# --------------------------
+# LIMPIEZA AGRESIVA FINAL
+# --------------------------
+echo "🧹 Limpiando residuos de instalación y paquetes huérfanos..."
+apt-get autoremove --purge -y
+apt-get clean -y
 
 echo "=== Optimización completada ==="
 exit 0
