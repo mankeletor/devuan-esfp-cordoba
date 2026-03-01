@@ -20,8 +20,8 @@ else
     exit 1
 fi
 
-# Añadir obligatorios para asegurar el funcionamiento de MATE
-for critical in mate-menu mate-desktop-environment-extras mate-applets multiload-ng bash-completion sudo; do
+# Añadir obligatorios y pre-dependencias críticas (Boris V6)
+for critical in mate-menu mate-desktop-environment-extras mate-applets multiload-ng bash-completion sudo zlib1g libeudev1 libc6 libgcc-s1; do
     if [[ ! " ${PAQUETES[@]} " =~ " $critical " ]]; then
         PAQUETES+=("$critical")
     fi
@@ -59,7 +59,7 @@ for pkg in "${PAQUETES[@]}"; do
     fi
 done
 
-# 3. Generar Índices de Apt con apt-ftparchive (Modelo Boris/Cisterna)
+# 3. Generar Índices de Apt con apt-ftparchive (Modelo Boris/Cisterna V6)
 echo "   Generando índices de Apt robustos con apt-ftparchive..."
 cd "$ISO_HOME"
 
@@ -71,8 +71,8 @@ gzip -c dists/excalibur/main/binary-amd64/Packages > dists/excalibur/main/binary
 touch dists/excalibur/main/debian-installer/binary-amd64/Packages
 gzip -c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
 
-# c. Generar el archivo Release CRÍTICO para debootstrap
-echo "   Generando archivo Release para debootstrap..."
+# c. Generar los archivos Release CRÍTICOS para debootstrap (V6)
+echo "   Generando archivos Release v6..."
 cat > apt-release.conf << EOF
 APT::FTPArchive::Release::Origin "Devuan";
 APT::FTPArchive::Release::Label "Devuan";
@@ -83,11 +83,15 @@ APT::FTPArchive::Release::Components "main";
 APT::FTPArchive::Release::Description "ESFP Cordoba Local Repository";
 EOF
 
+# Release principal
 apt-ftparchive -c apt-release.conf release dists/excalibur/ > dists/excalibur/Release
+# Release de componente (algunas versiones de debootstrap lo prefieren aquí)
+apt-ftparchive -c apt-release.conf release dists/excalibur/main/binary-amd64/ > dists/excalibur/main/binary-amd64/Release
+
 rm apt-release.conf
 
 # Limpiar temporales
 rm -rf "$EXTRACT_DIR"
 cd "$WORKDIR"
 
-echo "✅ Repositorio local Apt configurado"
+echo "✅ Repositorio local Apt configurado (V6 robusto)"
