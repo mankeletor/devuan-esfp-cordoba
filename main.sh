@@ -2,6 +2,8 @@
 # main.sh - Orquestador ESFP Córdoba ISO Customizer
 # Licencia: GNU GPL v3
 # Filosofía: KISS / Modular
+set -euo pipefail
+
 VERSION="0.99rc16"
 
 # 1. Cargar Configuración
