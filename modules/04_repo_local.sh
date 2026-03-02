@@ -89,45 +89,48 @@ export -f process_pkg
 
 printf "%s\n" "${PAQUETES[@]}" | xargs -I {} -P "$THREADS" bash -c 'process_pkg "$@"' _ {}
 
-# 3. Generar Indices de Apt (Lógica Monolith V10)
-echo "   Generando indices con dpkg-scanpackages..."
+# 3. Generar Indices de Apt (Lógica Robusta v0.99rc22)
+echo "   Generando indices con dpkg-scanpackages (Normalización de rutas)..."
 mkdir -p "$TMPDIR"
 cd "$ISO_HOME"
 
-# a. Generar archivo Packages (Multi-threading: $THREADS)
+# a. Generar archivo Packages con rutas relativas al CD (prefijo ./)
+# Esto garantiza que el instalador encuentre los .deb en cualquier punto de montaje.
 if command -v pigz > /dev/null 2>&1; then
-    dpkg-scanpackages pool/main /dev/null | pigz -p "$THREADS" -9c > dists/excalibur/main/binary-amd64/Packages.gz
+    dpkg-scanpackages -m pool/main /dev/null | sed "s|^Filename: \(.*\)$|Filename: ./\1|g" | pigz -p "$THREADS" -9c > dists/excalibur/main/binary-amd64/Packages.gz
 else
-    dpkg-scanpackages pool/main /dev/null | gzip -9c > dists/excalibur/main/binary-amd64/Packages.gz
+    dpkg-scanpackages -m pool/main /dev/null | sed "s|^Filename: \(.*\)$|Filename: ./\1|g" | gzip -9c > dists/excalibur/main/binary-amd64/Packages.gz
 fi
 
-# Refuerzo: también Packages sin comprimir
+# Refuerzo: también Packages sin comprimir (requerido por algunos installers)
 zcat dists/excalibur/main/binary-amd64/Packages.gz > dists/excalibur/main/binary-amd64/Packages
 
 # Vacío para debian-installer por compatibilidad
 touch dists/excalibur/main/debian-installer/binary-amd64/Packages
-if command -v pigz > /dev/null 2>&1; then
-    pigz -p "$THREADS" -c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
-else
-    gzip -c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
-fi
+gzip -9c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
 
-# c. Generar los archivos Release CRITICOS (V10)
-echo "   Generando archivos Release v10..."
+# c. Generar los archivos Release con Checksums Pesados (SHA256/512)
+echo "   Generando archivos Release con metadatos de seguridad..."
 cat > apt-release.conf << EOF
 APT::FTPArchive::Release::Origin "Devuan";
-APT::FTPArchive::Release::Label "Devuan";
+APT::FTPArchive::Release::Label "Devuan ESFP Córdoba";
 APT::FTPArchive::Release::Suite "excalibur";
 APT::FTPArchive::Release::Codename "excalibur";
 APT::FTPArchive::Release::Architectures "amd64";
 APT::FTPArchive::Release::Components "main";
-APT::FTPArchive::Release::Description "ESFP Cordoba Local Repository";
+APT::FTPArchive::Release::Description "Repositorio Local ESFP Córdoba (Offline)";
 EOF
 
-# Release del componente
+# Generar Release del componente
 apt-ftparchive -c apt-release.conf release dists/excalibur/main/binary-amd64/ > dists/excalibur/main/binary-amd64/Release
-# Release principal
+
+# Generar Release principal (Diferencial)
 apt-ftparchive -c apt-release.conf release dists/excalibur/ > dists/excalibur/Release
+
+# d. Configuración de Seguridad Apt (Hardware Legacy)
+echo "   Añadiendo configuración de seguridad para Apt..."
+mkdir -p "$ISO_HOME/etc/apt/apt.conf.d"
+echo 'Acquire::Check-Valid-Until "false";' > "$ISO_HOME/etc/apt/apt.conf.d/99no-check-valid-until"
 
 rm apt-release.conf
 
