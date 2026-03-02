@@ -230,7 +230,12 @@ EOF
 echo "✅ Autologin configurado para usuario alumno."
 
 echo "⚙️ Configurando nano como editor por defecto..."
-update-alternatives --set editor /bin/nano 2>/dev/null || true
+
+# Usar update-alternatives para establecer nano como editor
+if command -v update-alternatives &>/dev/null; then
+    update-alternatives --set editor /bin/nano 2>/dev/null || \
+    update-alternatives --set editor /usr/bin/nano 2>/dev/null || true
+fi
 
 # --------------------------
 # LIMPIEZA AGRESIVA FINAL
