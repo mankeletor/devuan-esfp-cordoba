@@ -1,5 +1,6 @@
 #!/bin/bash
 # modules/03_build_initrd.sh
+set -euo pipefail
 
 echo "📦 [Módulo 03] Modificando Initrd e Inyectando archivos..."
 

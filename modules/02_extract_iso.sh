@@ -1,5 +1,6 @@
 #!/bin/bash
 # modules/02_extract_iso.sh
+set -euo pipefail
 
 echo "💿 [Módulo 02] Extrayendo ISO original..."
 

@@ -1,5 +1,6 @@
 #!/bin/bash
 # modules/05_build_iso.sh
+set -euo pipefail
 
 echo "💿 [Módulo 05] Reconstruyendo ISO final con Xorriso..."
 
