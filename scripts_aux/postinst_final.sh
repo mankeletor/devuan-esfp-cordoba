@@ -229,6 +229,9 @@ autologin-session=mate
 EOF
 echo "✅ Autologin configurado para usuario alumno."
 
+echo "⚙️ Configurando nano como editor por defecto..."
+update-alternatives --set editor /bin/nano 2>/dev/null || true
+
 # --------------------------
 # LIMPIEZA AGRESIVA FINAL
 # --------------------------
