@@ -3,7 +3,7 @@
 # Lógica Híbrida V10: Extracción Xorriso + Indexación Monolith (dpkg-scanpackages)
 set -euo pipefail
 
-echo "📦 [Modulo 04] Creando repositorio local (Lógica Monolith V10)..."
+echo "📦 [Modulo 04] Creando repositorio local..."
 
 # Cargar configuración
 # Carga de configuración corregida
