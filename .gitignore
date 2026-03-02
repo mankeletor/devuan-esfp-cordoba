@@ -63,6 +63,11 @@ logs/
 # Emacs
 \#*\#
 .\#*
+# --------------------
+# IA / HERRAMIENTAS DE DESARROLLO
+# --------------------
+.aider*
+!.aider.conf.yml
 
 # --------------------
 # SISTEMA OPERATIVO
