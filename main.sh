@@ -4,7 +4,7 @@
 # Filosofía: KISS / Modular
 set -euo pipefail
 
-VERSION="0.99rc16"
+VERSION="0.99rc17"
 
 # 1. Cargar Configuración
 if [ ! -f ./config.env ]; then

@@ -1,5 +1,6 @@
 #!/bin/bash
 # modules/01_check_deps.sh
+set -euo pipefail
 
 echo "📋 [Módulo 01] Verificando dependencias y rutas..."
 
