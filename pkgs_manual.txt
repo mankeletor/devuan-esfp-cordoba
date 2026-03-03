@@ -165,6 +165,7 @@ logrotate
 logsave
 lsb-base
 mate-media
+mate-menu
 mate-polkit
 mate-polkit-bin
 mate-polkit-common
@@ -176,6 +177,7 @@ ncurses-base
 ncurses-bin
 net-tools
 netbase
+netcat-openbsd
 network-manager
 network-manager-gnome
 nftables
