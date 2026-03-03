@@ -8,7 +8,7 @@ echo "📦 [Módulo 03] Modificando Initrd e Inyectando archivos..."
 # Carga de configuración corregida
 if [ -z "$ISO_ORIGINAL" ]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    source "$SCRIPT_DIR/../config.env"
+    source "$BASE_DIR/config.env"
 fi
 
 # 1. Cargar paquetes desde pkgs_manual.txt (Cerebro)
