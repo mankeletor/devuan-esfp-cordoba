@@ -1,8 +1,9 @@
 #!/bin/bash
-# postinst_final.sh - Optimizaciones finales para ESFP Córdoba
-# Versión: PERSISTENTE (con /etc/skel y dconf robusto) - Corregida 03-mar-2026
-
-set -e  # Salir si hay error grave
+LOG="/var/log/custom-postinst.log"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - postinst_final.sh INICIADO (PID $$  )" > "$LOG"
+echo "Entorno: PATH=$PATH" >> "$LOG"
+echo "Usuario: $(whoami), Dir: $(pwd)" >> "$LOG"
+set -x  # verbose mode temporal para debug (muestra cada comando ejecutado)
 
 echo "=== Optimizando sistema para netbooks ESFP Córdoba (4GB RAM) ==="
 
@@ -292,8 +293,5 @@ apt-get autoclean -y
 apt-get clean
 
 # 11. Marca final
-echo "INSTALACIÓN ESFP-CÓRDOBA OPTIMIZADA - $(date)" >> /etc/issue
-echo "Sistema preparado para aulas ESFP Córdoba" >> /etc/motd
-
-echo "=== Optimización FINAL completada! ==="
+echo "$(date '+%Y-%m-%d %H:%M:%S') - postinst_final.sh FINALIZADO OK" >> "$LOG"
 exit 0
