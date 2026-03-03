@@ -17,14 +17,7 @@ ISO_FILENAME="${ISO_PREFIX}-$(date +%Y%m%d_%H%M).iso"
 # 1. Actualizar isolinux.cfg (Añadir entrada ESFP Córdoba sin destruir original)
 echo "   Actualizando isolinux.cfg para incluir preseed..."
 sed -i '$d' "$ISO_HOME/boot/isolinux/isolinux.cfg"
-cat >> "$ISO_HOME/boot/isolinux/isolinux.cfg" << EOF
-
-label esfp-cordoba
-  menu label ^Devuan ESFP Córdoba (Auto)
-  kernel /boot/isolinux/linux
-  initrd /boot/isolinux/initrd.gz
-  append vga=788 initrd=/boot/isolinux/initrd.gz preseed/file=/preseed.cfg auto=true priority=critical -- quiet
-EOF
+cat $WORKDIR/templates/isolinux.cfg >> "$ISO_HOME/boot/isolinux/isolinux.cfg" 
 
 # 2. Construcción con Xorriso Híbrido Robusto (v0.99rc24)
 echo "   Ejecutando Xorriso con parámetros de booteo de la ISO original..."
