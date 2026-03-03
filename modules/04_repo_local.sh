@@ -33,10 +33,9 @@ for critical in mate-menu mate-desktop-environment-extras mate-applets bash-comp
     fi
 done
 
-# Directorios del repositorio
-mkdir -p "$ISO_HOME/pool/main"
-mkdir -p "$ISO_HOME/dists/excalibur/main/binary-amd64"
-mkdir -p "$ISO_HOME/dists/excalibur/main/debian-installer/binary-amd64"
+# Directorios del repositorio complementario
+mkdir -p "$ISO_HOME/pool/local"
+mkdir -p "$ISO_HOME/dists/excalibur/local/binary-amd64"
 
 # 1. Generar lista de paquetes BASE (Netinstall) para evitar duplicados
 echo "   Identificando paquetes base de la ISO Netinstall..."
@@ -64,78 +63,60 @@ else
     echo "   ⚠️ Advertencia: No se encontraron paquetes en Pool1. Intentando descargar faltantes..."
 fi
 
-echo "   Procesando paquetes (Multi-threading: $THREADS)..."
+echo "   Procesando paquetes para POOL LOCAL (Multi-threading: $THREADS)..."
 export EXTRACT_DIR ISO_HOME THREADS BASE_PKGS_FILE
 process_pkg() {
     local pkg=$1
     
     # Prioridad 1: ¿Ya está en la base Netinstall?
     if grep -q "^${pkg}$" "$BASE_PKGS_FILE"; then
-        # echo "   → $pkg ya es parte de la base, conservando original."
         return 0
     fi
 
     # Prioridad 2: Buscar en Pool1 (extraído)
     local DEB=$(find "$EXTRACT_DIR" -name "${pkg}_*.deb" | head -1)
     if [ -n "$DEB" ]; then
-        cp "$DEB" "$ISO_HOME/pool/main/" 2>/dev/null
+        cp "$DEB" "$ISO_HOME/pool/local/" 2>/dev/null
     else
         # Prioridad 3: Descarga (si hay red)
-        # echo "   → $pkg no en Base ni Pool1, descargando..."
-        (cd "$ISO_HOME/pool/main/" && apt-get download "$pkg" -qq 2>/dev/null) || echo "   ❌ No se pudo obtener: $pkg"
+        (cd "$ISO_HOME/pool/local/" && apt-get download "$pkg" -qq 2>/dev/null) || echo "   ❌ No se pudo obtener: $pkg"
     fi
 }
 export -f process_pkg
 
 printf "%s\n" "${PAQUETES[@]}" | xargs -I {} -P "$THREADS" bash -c 'process_pkg "$@"' _ {}
 
-# 3. Generar Indices de Apt (Lógica Robusta v0.99rc22)
-echo "   Generando indices con dpkg-scanpackages (Normalización de rutas)..."
-mkdir -p "$TMPDIR"
+# 3. Generar Indices del Pool Local (v0.99rc24)
+echo "   Generando indices para pool/local..."
 cd "$ISO_HOME"
 
-# a. Generar archivo Packages con rutas relativas al CD (prefijo ./)
-# Esto garantiza que el instalador encuentre los .deb en cualquier punto de montaje.
+# Generar Packages para el pool LOCAL
 if command -v pigz > /dev/null 2>&1; then
-    dpkg-scanpackages -m pool/main /dev/null | sed "s|^Filename: \(.*\)$|Filename: ./\1|g" | pigz -p "$THREADS" -9c > dists/excalibur/main/binary-amd64/Packages.gz
+    dpkg-scanpackages -m pool/local /dev/null | sed "s|^Filename: \(.*\)$|Filename: ./\1|g" | pigz -p "$THREADS" -9c > dists/excalibur/local/binary-amd64/Packages.gz
 else
-    dpkg-scanpackages -m pool/main /dev/null | sed "s|^Filename: \(.*\)$|Filename: ./\1|g" | gzip -9c > dists/excalibur/main/binary-amd64/Packages.gz
+    dpkg-scanpackages -m pool/local /dev/null | sed "s|^Filename: \(.*\)$|Filename: ./\1|g" | gzip -9c > dists/excalibur/local/binary-amd64/Packages.gz
 fi
 
-# Refuerzo: también Packages sin comprimir (requerido por algunos installers)
-zcat dists/excalibur/main/binary-amd64/Packages.gz > dists/excalibur/main/binary-amd64/Packages
+# Packages plano para compatibilidad
+zcat dists/excalibur/local/binary-amd64/Packages.gz > dists/excalibur/local/binary-amd64/Packages
 
-# Vacío para debian-installer por compatibilidad
-touch dists/excalibur/main/debian-installer/binary-amd64/Packages
-gzip -9c dists/excalibur/main/debian-installer/binary-amd64/Packages > dists/excalibur/main/debian-installer/binary-amd64/Packages.gz
-
-# c. Generar los archivos Release con Checksums Pesados (SHA256/512)
-echo "   Generando archivos Release con metadatos de seguridad..."
-cat > apt-release.conf << EOF
+# Generar archivo Release para el componente LOCAL
+echo "   Generando metadatos para el repositorio local..."
+cat > apt-local-release.conf << EOF
 APT::FTPArchive::Release::Origin "Devuan";
-APT::FTPArchive::Release::Label "Devuan ESFP Córdoba";
+APT::FTPArchive::Release::Label "ESFP Córdoba Local Repo";
 APT::FTPArchive::Release::Suite "excalibur";
 APT::FTPArchive::Release::Codename "excalibur";
 APT::FTPArchive::Release::Architectures "amd64";
-APT::FTPArchive::Release::Components "main";
-APT::FTPArchive::Release::Description "Repositorio Local ESFP Córdoba (Offline)";
+APT::FTPArchive::Release::Components "local";
+APT::FTPArchive::Release::Description "Paquetes Complementarios ESFP Córdoba";
 EOF
 
-# Generar Release del componente
-apt-ftparchive -c apt-release.conf release dists/excalibur/main/binary-amd64/ > dists/excalibur/main/binary-amd64/Release
-
-# Generar Release principal (Diferencial)
-apt-ftparchive -c apt-release.conf release dists/excalibur/ > dists/excalibur/Release
-
-# d. Configuración de Seguridad Apt (Hardware Legacy)
-echo "   Añadiendo configuración de seguridad para Apt..."
-mkdir -p "$ISO_HOME/etc/apt/apt.conf.d"
-echo 'Acquire::Check-Valid-Until "false";' > "$ISO_HOME/etc/apt/apt.conf.d/99no-check-valid-until"
-
-rm apt-release.conf
+apt-ftparchive -c apt-local-release.conf release dists/excalibur/local/binary-amd64/ > dists/excalibur/local/binary-amd64/Release
+rm apt-local-release.conf
 
 # Limpiar temporales
 rm -rf "$EXTRACT_DIR"
 cd "$WORKDIR"
 
-echo "✅ Repositorio local Apt configurado (Lógica Monolith V11 KISS)"
+echo "✅ Repositorio local Apt configurado en pool/local."
