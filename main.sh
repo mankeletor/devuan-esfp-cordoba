@@ -4,7 +4,7 @@
 # Filosofía: KISS / Modular
 set -euo pipefail
 
-VERSION="0.99rc23"
+VERSION="0.99rc24"
 export BASE_DIR="$(pwd)"
 
 # 1. Cargar Configuración
@@ -52,10 +52,9 @@ run_module "02_extract_iso.sh"
 run_module "04_repo_local.sh"
 run_module "03_build_initrd.sh"
 
-# Inyectar configuración de Booteo (usando la plantilla)
-echo "🎨 [Main] Aplicando plantilla de booteo (templates/isolinux.cfg)..."
-cp "$BASE_DIR/templates/isolinux.cfg" "$ISO_HOME/boot/isolinux/isolinux.cfg"
-rm -f "$ISO_HOME/boot/isolinux/"{menu.cfg,stdmenu.cfg,vesamenu.c32} 2>/dev/null
+# 04_repo_local debe finalizar antes que 03_build_initrd
+run_module "04_repo_local.sh"
+run_module "03_build_initrd.sh"
 
 run_module "05_build_iso.sh"
 

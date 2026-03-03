@@ -25,4 +25,15 @@ if [ $? -ne 0 ] || [ ! -d "$ISO_HOME/boot" ]; then
     exit 1
 fi
 
+# EXTRAER ARCHIVOS DE BOOTEO CRÍTICOS (v0.99rc24)
+echo "   Extrayendo metatados de booteo (isohdpfx.bin y efi.img)..."
+mkdir -p "$ISO_HOME/boot/grub" 2>/dev/null
+
+# Extraer el MBR (isohdpfx.bin) de los primeros 432 bytes
+dd if="$ISO_ORIGINAL" of="$ISO_HOME/boot/isolinux/isohdpfx.bin" bs=1 count=432 status=none
+
+# Extraer la partición EFI (efi.img)
+# Según reporte previo el offset es 1148928 sectores de 512 bytes
+dd if="$ISO_ORIGINAL" of="$ISO_HOME/boot/grub/efi.img" bs=512 skip=1148928 count=65000 status=none
+
 echo "✅ ISO extraída correctamente en $ISO_HOME"
