@@ -5,7 +5,7 @@ echo "📦 [Módulo 03] Modificando Initrd e Inyectando archivos..."
 # Cargar configuración
 # Carga de configuración corregida
 if [ -z "$ISO_ORIGINAL" ]; then
-SCRIPT_DIR="$  (cd "  $(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$BASE_DIR/config.env"
 fi
 # 1. Cargar paquetes desde pkgs_manual.txt (Cerebro)
@@ -13,7 +13,7 @@ echo " Cargando paquetes para instalación manual desde $PKGS_MANUAL_FILE..."
 PAQUETES=()
 if [ -f "$PKGS_MANUAL_FILE" ]; then
 while IFS= read -r line || [ -n "$line" ]; do
-        [ -z "$line" ] && continue
+        [ -z "$line" ] && continue
 PAQUETES+=("$line")
 done < "$PKGS_MANUAL_FILE"
 else
@@ -28,7 +28,7 @@ fi
 done
 # 2. Descomprimir Initrd
 local_initrd="$ISO_HOME/boot/isolinux/initrd.gz"
-[ ! -f "${local_initrd}.original" ] && cp "$  local_initrd" "  ${local_initrd}.original"
+[ ! -f "${local_initrd}.original" ] && cp "$local_initrd" "${local_initrd}.original"
 mkdir -p "$WORKDIR/temp_initrd"
 cd "$WORKDIR/temp_initrd"
 if ! zcat "$local_initrd" | cpio -idmv > /dev/null 2>&1; then
@@ -54,9 +54,9 @@ chmod +x /target/root/postinst.sh
 EOF
 chmod +x usr/lib/finish-install.d/99esfp-custom
 # 4. Actualizar preseed con la lista "Cerebro" (PKGS_MANUAL)
-PKGS_STRING=$  (echo "  ${PAQUETES[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+PKGS_STRING=$(echo "${PAQUETES[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')
 echo " Inyectando paquetes: $PKGS_STRING"
-sed -i "s/**PAQUETES**/$PKGS_STRING/g" ./preseed.cfg
+sed -i "s/__PAQUETES__/$PKGS_STRING/g" ./preseed.cfg
 # 5. Reempaquetar
 echo " Reempaquetando Initrd (Multi-threading: $THREADS)..."
 if command -v pigz > /dev/null 2>&1; then
