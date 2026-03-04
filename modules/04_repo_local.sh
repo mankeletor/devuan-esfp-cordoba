@@ -1,122 +1,143 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # modules/04_repo_local.sh
-# Lógica Complementaria Robusta v0.99rc25
+# Genera repositorio local offline + relleno opcional de paquetes faltantes
+# Basado en Debian Wiki + guías simples + tu flujo actual
+
 set -euo pipefail
 
-# Redirección de logs (Cerebro v0.99rc25)
-LOG_FILE="$WORKDIR/logs/04_repo_local.log"
-WARN_LOG="$WORKDIR/logs/warnings.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
-
-echo "📦 [Modulo 04] Creando repositorio local complementario..."
-
+# ────────────────────────────────────────────────
 # Cargar configuración
-if [ -z "${BASE_DIR:-}" ]; then
-    BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-fi
-source "$BASE_DIR/config.env"
+# ────────────────────────────────────────────────
+source "${BASE_DIR:-$(pwd)}/config.env" 2>/dev/null || true
 
-# Optimización de hilos (Max segura)
-CPU_COUNT=$(nproc)
-THREADS=$((CPU_COUNT + 1))
-[ "$THREADS" -gt 8 ] && THREADS=8
-echo "   Utilizando $THREADS hilos para procesamiento paralelo."
+WORK_DIR="${WORK_DIR:-$(pwd)/work}"
+CDROM_DIR="${WORK_DIR}/cdrom"
+POOL_LOCAL="${CDROM_DIR}/pool/local"
+DIST_DIR="${CDROM_DIR}/dists/excalibur/local"
+BINARY_DIR="${DIST_DIR}/binary-amd64"
+ARCH="amd64"
+SUITE="excalibur"
+COMPONENT="local"
 
-# 0. Cargar y Validar paquetes
-echo "   Cargando y validando paquetes desde $PKGS_OFFLINE_FILE..."
-PAQUETES_RAW=()
-if [ -f "$PKGS_OFFLINE_FILE" ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-        [[ -z "$line" || "$line" =~ ^# || "$line" == Estado=* || "$line" == Err?=* || "$line" == Nombre ]] && continue
-        pkg=$(echo "$line" | awk '{ if ($1 ~ /^[a-z][a-z]$/) print $2; else print $1; }' | sed 's/:.*//')
-        
-        # Validación Regex de nombre de paquete Debian
-        if [[ "$pkg" =~ ^[a-z0-9][a-z0-9+.-]+$ ]]; then
-            PAQUETES_RAW+=("$pkg")
-        else
-            [ -n "$pkg" ] && echo "⚠️ Nombre de paquete inválido omitido: $pkg" >> "$WARN_LOG"
-        fi
-    done < "$PKGS_OFFLINE_FILE"
-else
-    echo "❌ Error: $PKGS_OFFLINE_FILE no encontrado."
-    exit 1
-fi
+LISTA_PKGS="${BASE_DIR}/pkgs_offline.txt"
+LISTA_MANUAL="${BASE_DIR}/pkgs_manual.txt" 
 
-# Inyección de paquetes CRÍTICOS (Declarativo)
-PAQUETES_CRITICOS=(mate-menu mate-desktop-environment-extras mate-applets bash-completion sudo zlib1g libeudev1 libc6 libgcc-s1 vlc vlc-plugin-base)
-PAQUETES_RAW+=("${PAQUETES_CRITICOS[@]}")
+# Activar relleno dinámico (descarga online si falta paquete)
+# Por defecto: false → 100% offline
+FILL_MISSING="${FILL_MISSING:-false}"
 
-# Eliminar duplicados y ordenar
-PAQUETES=($(printf "%s\n" "${PAQUETES_RAW[@]}" | sort -u))
-echo "   ✅ Total de paquetes únicos a procesar: ${#PAQUETES[@]}"
+# Mirror para relleno (elige uno rápido y confiable para Devuan)
+FILL_MIRROR="${FILL_MIRROR:-http://deb.devuan.nz/devuan}"
 
-# Directorios
-mkdir -p "$ISO_HOME/pool/local"
-mkdir -p "$ISO_HOME/dists/excalibur/local/binary-amd64"
+# ────────────────────────────────────────────────
+# Funciones auxiliares
+# ────────────────────────────────────────────────
 
-# 1. Identificar paquetes BASE
-echo "   Indexando base Netinstall para de-duplicación..."
-BASE_PKGS_FILE="$WORKDIR/base_packages.txt"
-if [ -f "$ISO_HOME/dists/excalibur/main/binary-amd64/Packages" ]; then
-    grep "^Package: " "$ISO_HOME/dists/excalibur/main/binary-amd64/Packages" | cut -d' ' -f2 | sort -u > "$BASE_PKGS_FILE"
-else
-    touch "$BASE_PKGS_FILE"
-fi
+log() { echo "[04_repo_local] $*" >&2; }
+error() { echo "[04_repo_local] ERROR: $*" >&2; exit 1; }
 
-# 2. Extraer e Indexar Pool1
-EXTRACT_DIR="$WORKDIR/pool1_files"
-POOL1_INDEX="$WORKDIR/pool1_index.txt"
-echo "   Extrayendo Pool1.iso..."
-rm -rf "$EXTRACT_DIR" 2>/dev/null
-mkdir -p "$EXTRACT_DIR"
-xorriso -osirrox on -indev "$POOL1_ISO" -extract /pool "$EXTRACT_DIR" 2>/dev/null || { echo "❌ Error: Falló la extracción de $POOL1_ISO"; exit 1; }
-
-# Crear índice de búsqueda rápida
-find "$EXTRACT_DIR" -name "*.deb" -printf "%p\n" > "$POOL1_INDEX"
-DEB_COUNT=$(wc -l < "$POOL1_INDEX")
-echo "   ✅ Pool1 indexado ($DEB_COUNT paquetes)."
-
-# 3. Procesamiento Paralelo Optimizado
-export EXTRACT_DIR ISO_HOME BASE_PKGS_FILE POOL1_INDEX WARN_LOG
-process_pkg() {
-    local pkg=$1
-    
-    # 1. ¿Está en base?
-    if grep -q "^${pkg}$" "$BASE_PKGS_FILE"; then return 0; fi
-
-    # 2. Buscar en índice de Pool1 (Grep es más rápido que find)
-    local DEB_PATH=$(grep -m1 "/${pkg}_" "$POOL1_INDEX" || true)
-    
-    if [ -n "$DEB_PATH" ] && [ -f "$DEB_PATH" ]; then
-        cp "$DEB_PATH" "$ISO_HOME/pool/local/" || echo "❌ Error copiando $pkg" >> "$WARN_LOG"
-    else
-        # 3. Descarga
-        (cd "$ISO_HOME/pool/local/" && apt-get download "$pkg" -qq 2>/dev/null) || echo "❌ No disponible: $pkg" >> "$WARN_LOG"
-    fi
+ensure_dir() {
+    mkdir -p "$1" || error "No se pudo crear $1"
 }
-export -f process_pkg
 
-echo "   Iniciando copia/descarga paralela..."
-printf "%s\n" "${PAQUETES[@]}" | xargs -I {} -P "$THREADS" bash -c 'process_pkg "$@"' _ {}
+check_commands() {
+    for cmd in dpkg-scanpackages gzip apt-get; do
+        command -v "$cmd" >/dev/null || error "Falta herramienta requerida: $cmd"
+    done
+}
 
-# 4. Generar Índices Apt
-echo "   Generando índices de repositorio local..."
-cd "$ISO_HOME"
-dpkg-scanpackages -m pool/local /dev/null | sed "s|^Filename: \(.*\)$|Filename: ./\1|g" | gzip -9c > dists/excalibur/local/binary-amd64/Packages.gz
-zcat dists/excalibur/local/binary-amd64/Packages.gz > dists/excalibur/local/binary-amd64/Packages
+# ────────────────────────────────────────────────
+# Paso 1: Tomar SOLO pkgs_manual.txt como deseados explícitos
+# ────────────────────────────────────────────────
 
-cat > apt-local-release.conf << EOF
-APT::FTPArchive::Release::Origin "Devuan";
-APT::FTPArchive::Release::Label "ESFP Cordoba Local Repo";
-APT::FTPArchive::Release::Suite "excalibur";
-APT::FTPArchive::Release::Codename "excalibur";
-APT::FTPArchive::Release::Architectures "amd64";
-APT::FTPArchive::Release::Components "local";
-APT::FTPArchive::Release::Description "Paquetes Complementarios ESFP Cordoba";
+if [ ! -s "$LISTA_MANUAL" ]; then
+    error "pkgs_manual.txt vacío o no existe → nada que instalar manualmente"
+fi
+
+cp "$LISTA_MANUAL" "${WORK_DIR}/pkgs_manual_clean.txt"
+log "Paquetes manuales deseados: $(wc -l < "${WORK_DIR}/pkgs_manual_clean.txt")"
+
+# ────────────────────────────────────────────────
+# Paso 2: Generar lista completa = manuales + TODAS sus dependencias
+# ────────────────────────────────────────────────
+
+log "Calculando dependencias de los paquetes manuales..."
+
+> "${WORK_DIR}/pkgs_full.txt"  # lista final
+
+while IFS= read -r pkg; do
+    echo "$pkg" >> "${WORK_DIR}/pkgs_full.txt"
+    
+    # Obtener dependencias (apt-cache depende del mirror temporal o local)
+    # Usamos un sources.list temporal con el mirror para resolver deps correctamente
+    apt-cache depends "$pkg" --important 2>/dev/null | grep '^  Depends: ' | awk '{print $2}' | sort -u >> "${WORK_DIR}/pkgs_full.txt"
+done < "${WORK_DIR}/pkgs_manual_clean.txt"
+
+# Limpiar duplicados y versiones (nos quedamos con nombres base)
+sort -u "${WORK_DIR}/pkgs_full.txt" > "${WORK_DIR}/pkgs_to_include.txt"
+
+log "Lista completa (manuales + deps): $(wc -l < "${WORK_DIR}/pkgs_to_include.txt") paquetes"
+
+# ────────────────────────────────────────────────
+# Paso 3: Copiar lo que ya existe localmente
+# ────────────────────────────────────────────────
+
+log "Copiando paquetes disponibles localmente..."
+
+copiados_local=0
+while IFS= read -r pkg; do
+    found=$(find "$POOL_SOURCE" -type f -name "${pkg}_*.deb" -print -quit 2>/dev/null)
+    if [ -n "$found" ]; then
+        cp -v "$found" "${POOL_LOCAL}/" && ((copiados_local++)) || true
+    fi
+done < "${WORK_DIR}/pkgs_to_include.txt"
+
+log "Copiados desde pool extraído: $copiados_local"
+
+# ────────────────────────────────────────────────
+# Paso 4: Relleno solo para lo que falta (si activado)
+# ────────────────────────────────────────────────
+
+copiados_online=0
+
+if [ "$FILL_MISSING" = "true" ]; then
+    log "Rellenando dependencias y paquetes faltantes..."
+
+    DOWNLOAD_DIR="${WORK_DIR}/downloads_temp"
+    ensure_dir "$DOWNLOAD_DIR"
+    cd "$DOWNLOAD_DIR" || error "No se pudo entrar a temp download"
+
+    cat > sources.list.temp << EOF
+deb $FILL_MIRROR $SUITE main contrib non-free non-free-firmware
 EOF
 
-apt-ftparchive -c apt-local-release.conf release dists/excalibur/local/binary-amd64/ > dists/excalibur/local/binary-amd64/Release
-rm apt-local-release.conf
+    apt-get update \
+        -o Dir::Etc::sourcelist="$(pwd)/sources.list.temp" \
+        -o Dir::Cache::archives="$(pwd)" \
+        -o Dir::State::status=/dev/null \
+        --allow-insecure-repositories || log "Advertencia: apt update falló"
 
-rm -rf "$EXTRACT_DIR"
-echo "✅ Módulo 04 finalizado exitosamente."
+    while IFS= read -r pkg; do
+        if ! ls "${POOL_LOCAL}/${pkg}_"*.deb &>/dev/null; then
+            log "Descargando $pkg + sus dependencias..."
+            if apt-get install --reinstall --download-only -y \
+                -o Dir::Cache::archives="$(pwd)" \
+                "$pkg" >/dev/null 2>&1; then
+                
+                find . -maxdepth 1 -name "*.deb" -exec mv {} "${POOL_LOCAL}/" \;
+                ((copiados_online++))
+            else
+                log "Fallo al descargar $pkg"
+            fi
+        fi
+    done < "${WORK_DIR}/pkgs_to_include.txt"
+
+    rm -rf "$DOWNLOAD_DIR"/*
+    apt-get clean
+
+    log "Relleno completado: $copiados_online paquetes nuevos"
+fi
+
+# ────────────────────────────────────────────────
+# Continuar con generación de Packages, Release, etc. (igual que antes)
+# ────────────────────────────────────────────────

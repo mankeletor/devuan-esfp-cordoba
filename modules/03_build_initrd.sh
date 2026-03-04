@@ -48,8 +48,6 @@ echo "   Inyectando preseed, postinst, rc.conf y listas de paquetes..."
 cp "$BASE_DIR/preseed.cfg" ./preseed.cfg
 cp "$BASE_DIR/scripts_aux/postinst_final.sh" ./postinst.sh
 cp "$BASE_DIR/templates/rc.conf" ./rc.conf
-cp "$BASE_DIR/pkgs_offline.txt" ./pkgs_offline.txt
-cp "$BASE_DIR/pkgs_manual.txt" ./pkgs_manual.txt
 
 # --- NUEVO: Script de intervención radical (finish-install) ---
 # Optimizado para RAM: solo lanza apt tras asegurar que el target tiene el repo local
@@ -60,8 +58,6 @@ cat > usr/lib/finish-install.d/99esfp-custom << 'EOF'
 # 99esfp-custom - Inyectado por ESFP Córdoba Modular
 echo "🔥 [Radical] Asegurando persistencia de scripts en /target..."
 cp /postinst.sh /target/root/postinst.sh
-cp /pkgs_offline.txt /target/root/pkgs_offline.txt
-cp /pkgs_manual.txt /target/root/pkgs_manual.txt
 chmod +x /target/root/postinst.sh
 EOF
 chmod +x usr/lib/finish-install.d/99esfp-custom
