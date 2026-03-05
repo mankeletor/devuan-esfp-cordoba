@@ -24,6 +24,21 @@ WARN_LOG="$WORKDIR/logs/warnings.log"
 mkdir -p "$WORKDIR/logs" "$PKG_CACHE"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
+# Manejo de parámetros
+CLEAN_MODE=false
+for arg in "$@"; do
+    if [ "$arg" == "--clean" ]; then
+        CLEAN_MODE=true
+        break
+    fi
+done
+
+if [ "$CLEAN_MODE" = true ]; then
+    echo "   🧹 [Clean] Vaciando caché de paquetes ($PKG_CACHE)..."
+    # Borrar solo archivos .deb para no romper el directorio si está montado o algo similar
+    find "$PKG_CACHE" -name "*.deb" -type f -delete
+fi
+
 # Optimización de hilos (Max segura)
 CPU_COUNT=$(nproc)
 THREADS=$((CPU_COUNT + 1))
@@ -71,19 +86,15 @@ echo "   Sincronizando índices de Devuan en el sandbox..."
 # Forzar actualización ignorando cualquier restricción de seguridad del host
 apt-get -c "$APT_SANDBOX/apt.conf" update -o APT::Get::AllowUnauthenticated=true -o Acquire::AllowInsecureRepositories=true -qq || true
 
-# 0. Cargar y Validar paquetes (Usando lista manual para resolución)
-echo "   Cargando y validando paquetes desde $PKGS_MANUAL_FILE..."
-PAQUETES_RAW=()
+# 0. Cargar y Validar paquetes (Usando lista manual como semilla)
+echo "   Cargando paquetes base desde $PKGS_MANUAL_FILE..."
+PAQUETES_SEMILLA=()
 if [ -f "$PKGS_MANUAL_FILE" ]; then
     while IFS= read -r line || [ -n "$line" ]; do
-        [[ -z "$line" || "$line" =~ ^# || "$line" == Estado=* || "$line" == Err?=* || "$line" == Nombre ]] && continue
-        pkg=$(echo "$line" | awk '{ if ($1 ~ /^[a-z][a-z]$/) print $2; else print $1; }' | sed 's/:.*//')
-        
-        # Validación Regex de nombre de paquete Debian
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        pkg=$(echo "$line" | awk '{print $1}' | sed 's/:.*//')
         if [[ "$pkg" =~ ^[a-z0-9][a-z0-9+.-]+$ ]]; then
-            PAQUETES_RAW+=("$pkg")
-        else
-            [ -n "$pkg" ] && echo "⚠️ Nombre de paquete inválido omitido: $pkg" >> "$WARN_LOG"
+            PAQUETES_SEMILLA+=("$pkg")
         fi
     done < "$PKGS_MANUAL_FILE"
 else
@@ -104,23 +115,24 @@ PAQUETES_CRITICOS=(
     libgcc-s1 
     vlc 
     vlc-plugin-base
+    network-manager
+    firmware-linux-nonfree
 )
-PAQUETES_RAW+=("${PAQUETES_CRITICOS[@]}")
+PAQUETES_SEMILLA+=("${PAQUETES_CRITICOS[@]}")
 
-# Eliminar duplicados iniciales
-PAQUETES_UNIQ=($(printf "%s\n" "${PAQUETES_RAW[@]}" | sort -u))
-echo "   🔍 Resolviendo dependencias para ${#PAQUETES_UNIQ[@]} paquetes base (Sandbox)..."
+# 0.1 Resolución de Dependencias Recursivas (Cerebro v0.99rc27)
+echo "   Resolviendo dependencias recursivas mediante simulación APT..."
+# Extraer solo los nombres de paquetes que APT planea instalar
+PAQUETES_LISTA_COMPLETA=$(apt-get -c "$APT_SANDBOX/apt.conf" --simulate install "${PAQUETES_SEMILLA[@]}" 2>/dev/null | grep "^Inst " | awk '{print $2}' | sort -u || true)
 
-# Resolución de dependencias recursiva usando el sandbox
-DEPS_ALL=$(apt-cache -c "$APT_SANDBOX/apt.conf" depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "${PAQUETES_UNIQ[@]}" 2>/dev/null | grep "^\w" | sort -u || true)
-
-if [ -n "$DEPS_ALL" ]; then
-    PAQUETES=($DEPS_ALL)
+if [ -z "$PAQUETES_LISTA_COMPLETA" ]; then
+    echo "⚠️ Advertencia: APT no pudo resolver dependencias. Usando solo lista manual."
+    PAQUETES=($(printf "%s\n" "${PAQUETES_SEMILLA[@]}" | sort -u))
 else
-    PAQUETES=("${PAQUETES_UNIQ[@]}")
+    PAQUETES=($PAQUETES_LISTA_COMPLETA)
 fi
 
-echo "   ✅ Total de paquetes (base + dependencias) a procesar: ${#PAQUETES[@]}"
+echo "   ✅ Total de paquetes únicos a procesar (manual + dependencias): ${#PAQUETES[@]}"
 
 # Directorios
 mkdir -p "$ISO_HOME/pool/local"

@@ -11,13 +11,21 @@ if [ -z "$ISO_ORIGINAL" ]; then
     source "$BASE_DIR/config.env"
 fi
 
-# 1. Cargar paquetes desde pkgs_manual.txt (Cerebro)
-echo "   Cargando paquetes para instalación manual desde $PKGS_MANUAL_FILE..."
+# 1. Cargar paquetes desde pkgs_manual.txt (Selección manual para preseed)
+echo "   Cargando paquetes desde $PKGS_MANUAL_FILE..."
 PAQUETES=()
 if [ -f "$PKGS_MANUAL_FILE" ]; then
     while IFS= read -r line || [ -n "$line" ]; do
-        [ -z "$line" ] && continue
-        PAQUETES+=("$line")
+        # Saltar comentarios y líneas vacías
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        
+        # Extraer nombre del paquete (asumiendo lista simple de apt-mark showmanual)
+        pkg=$(echo "$line" | awk '{print $1}' | sed 's/:.*//')
+        
+        # Validación básica de nombre de paquete
+        if [[ "$pkg" =~ ^[a-z0-9][a-z0-9+.-]+$ ]]; then
+            PAQUETES+=("$pkg")
+        fi
     done < "$PKGS_MANUAL_FILE"
 else
     echo "❌ Error: $PKGS_MANUAL_FILE no encontrado."
