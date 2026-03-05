@@ -5,11 +5,10 @@
 
 set -euo pipefail
 
-# ────────────────────────────────────────────────
-# Cargar configuración del proyecto
-# ────────────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Cargar configuración
+if [ -z "${BASE_DIR:-}" ]; then
+    BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
 source "$BASE_DIR/config.env"
 
 # Variables del proyecto (definidas en config.env)
