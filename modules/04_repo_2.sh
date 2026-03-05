@@ -29,8 +29,8 @@ COMPONENT="local"
 LISTA_MANUAL="${BASE_DIR}/pkgs_manual.txt"
 
 # Activar relleno dinámico (descarga online si falta paquete)
-FILL_MISSING="${FILL_MISSING:-false}"
-FILL_MIRROR="${FILL_MIRROR:-http://deb.devuan.nz/devuan}"
+FILL_MISSING="${FILL_MISSING:-true}"
+FILL_MIRROR="${FILL_MIRROR:-http://dev1mir.registrationsplus.net/devuan/merged}"
 
 # ────────────────────────────────────────────────
 # Funciones auxiliares
