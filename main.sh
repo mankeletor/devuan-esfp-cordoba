@@ -4,7 +4,7 @@
 # Filosofía: KISS / Modular
 set -euo pipefail
 
-VERSION="0.99rc26"
+VERSION="0.99rc27"
 export BASE_DIR="$(pwd)"
 
 # 1. Cargar Configuración
