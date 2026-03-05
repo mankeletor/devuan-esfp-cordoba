@@ -32,7 +32,7 @@ echo "vm.swappiness=10" >> /etc/sysctl.conf
 sysctl -p >/dev/null 2>&1 || true
 
 # 4. Desactivar servicios innecesarios
-SERVICIOS_INNECESARIOS="cups bluetooth whoopsie avahi-daemon speech-dispatcher ModemManager"
+SERVICIOS_INNECESARIOS="cups bluetooth whoopsie speech-dispatcher"
 for servicio in $SERVICIOS_INNECESARIOS; do
     if [ -f /etc/init.d/$servicio ]; then
         update-rc.d $servicio disable 2>/dev/null || true
@@ -41,7 +41,7 @@ for servicio in $SERVICIOS_INNECESARIOS; do
 done
 
 if command -v rc-update >/dev/null; then
-    for servicio in bluetooth cups avahi-daemon ModemManager; do
+    for servicio in bluetooth cups; do
         rc-update del $servicio default 2>/dev/null || true
     done
     echo "Servicios OpenRC desactivados"

@@ -7,6 +7,15 @@ set -euo pipefail
 VERSION="0.99rc27"
 export BASE_DIR="$(pwd)"
 
+# 0. Manejo de Argumentos
+CLEAN_ARG=""
+for arg in "$@"; do
+    if [ "$arg" == "--clean" ]; then
+        CLEAN_ARG="--clean"
+        break
+    fi
+done
+
 # 1. Cargar Configuración
 if [ ! -f ./config.env ]; then
     echo "❌ Error: config.env no encontrado."
@@ -36,9 +45,11 @@ EXEC_START=$(date +%s)
 
 # Función para ejecutar módulos con chequeo de error
 run_module() {
-    local mod_file="./modules/$1"
+    local mod_name="$1"
+    shift
+    local mod_file="./modules/$mod_name"
     if [ -x "$mod_file" ]; then
-        bash "$mod_file" || { echo "❌ Error fatal en $1"; exit 1; }
+        bash "$mod_file" "$@" || { echo "❌ Error fatal en $mod_name"; exit 1; }
     else
         echo "❌ Error: $mod_file no existe o no es ejecutable."
         exit 1
@@ -52,7 +63,7 @@ run_module "01_check_deps.sh"
 run_module "02_extract_iso.sh"
 
 # Orden de Dependencia Crítico: 04 antes que 03 (Sincrónico)
-run_module "04_repo_local.sh"
+run_module "04_repo_local.sh" $CLEAN_ARG
 run_module "03_build_initrd.sh"
 
 run_module "05_build_iso.sh"
