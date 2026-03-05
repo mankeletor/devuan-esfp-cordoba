@@ -18,9 +18,10 @@ fi
 # Redirección de logs (Cerebro v0.99rc25)
 # Usar WORKDIR de config.env o fallback al directorio actual
 WORKDIR="${WORKDIR:-$BASE_DIR/custom_esfp}"
+PKG_CACHE="$BASE_DIR/pkg_cache"
 LOG_FILE="$WORKDIR/logs/04_repo_local.log"
 WARN_LOG="$WORKDIR/logs/warnings.log"
-mkdir -p "$WORKDIR/logs"
+mkdir -p "$WORKDIR/logs" "$PKG_CACHE"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 # Optimización de hilos (Max segura)
@@ -28,6 +29,41 @@ CPU_COUNT=$(nproc)
 THREADS=$((CPU_COUNT + 1))
 [ "$THREADS" -gt 8 ] && THREADS=8
 echo "   Utilizando $THREADS hilos para procesamiento paralelo."
+
+# --- CONFIGURACIÓN DE SANDBOX APT (Multi-distro support) ---
+echo "   Configurando entorno APT aislado..."
+APT_SANDBOX="$WORKDIR/apt-temp"
+# Estructura profunda para evitar errores de APT
+mkdir -p "$APT_SANDBOX/var/lib/apt/lists/partial"
+mkdir -p "$APT_SANDBOX/var/cache/apt/archives/partial"
+mkdir -p "$APT_SANDBOX/etc/apt/preferences.d"
+mkdir -p "$APT_SANDBOX/var/log/apt"
+
+cat > "$APT_SANDBOX/etc/apt/sources.list" << EOF
+deb [trusted=yes] http://deb.devuan.org/merged excalibur main contrib non-free
+deb [trusted=yes] http://deb.devuan.org/merged excalibur-updates main contrib non-free
+deb [trusted=yes] http://deb.devuan.org/merged excalibur-security main contrib non-free
+# Daedalus como fallback si es necesario, también con path /merged
+deb [trusted=yes] http://deb.devuan.org/merged daedalus main contrib non-free
+EOF
+
+cat > "$APT_SANDBOX/apt.conf" << EOF
+Dir "$APT_SANDBOX";
+Dir::State "$APT_SANDBOX/var/lib/apt";
+Dir::Cache "$APT_SANDBOX/var/cache/apt";
+Dir::Etc "$APT_SANDBOX/etc/apt";
+Dir::Log "$APT_SANDBOX/var/log/apt";
+# Configuraciones para Sandbox sin GPG
+Acquire::AllowInsecureRepositories "true";
+Acquire::AllowDowngradeToInsecureRepositories "true";
+Acquire::Check-Valid-Until "false";
+APT::Get::AllowUnauthenticated "true";
+APT::Architecture "amd64";
+EOF
+
+echo "   Sincronizando índices de Devuan en el sandbox..."
+# Forzar actualización ignorando cualquier restricción de seguridad del host
+apt-get -c "$APT_SANDBOX/apt.conf" update -o APT::Get::AllowUnauthenticated=true -o Acquire::AllowInsecureRepositories=true -qq || true
 
 # 0. Cargar y Validar paquetes (Usando lista manual para resolución)
 echo "   Cargando y validando paquetes desde $PKGS_MANUAL_FILE..."
@@ -67,11 +103,10 @@ PAQUETES_RAW+=("${PAQUETES_CRITICOS[@]}")
 
 # Eliminar duplicados iniciales
 PAQUETES_UNIQ=($(printf "%s\n" "${PAQUETES_RAW[@]}" | sort -u))
-echo "   🔍 Resolviendo dependencias para ${#PAQUETES_UNIQ[@]} paquetes base..."
+echo "   🔍 Resolviendo dependencias para ${#PAQUETES_UNIQ[@]} paquetes base (Sandbox)..."
 
-# Resolución de dependencias recursiva (filtro básico)
-# Usamos apt-cache depends para obtener la lista completa
-DEPS_ALL=$(apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "${PAQUETES_UNIQ[@]}" 2>/dev/null | grep "^\w" | sort -u || true)
+# Resolución de dependencias recursiva usando el sandbox
+DEPS_ALL=$(apt-cache -c "$APT_SANDBOX/apt.conf" depends --recurse --no-recommends --no-suggests --no-conflicts --no-breaks --no-replaces --no-enhances "${PAQUETES_UNIQ[@]}" 2>/dev/null | grep "^\w" | sort -u || true)
 
 if [ -n "$DEPS_ALL" ]; then
     PAQUETES=($DEPS_ALL)
@@ -108,13 +143,13 @@ DEB_COUNT=$(wc -l < "$POOL1_INDEX")
 echo "   ✅ Pool1 indexado ($DEB_COUNT paquetes)."
 
 # 3. Procesamiento Paralelo Optimizado
-export EXTRACT_DIR ISO_HOME BASE_PKGS_FILE POOL1_INDEX WARN_LOG
+export EXTRACT_DIR ISO_HOME BASE_PKGS_FILE POOL1_INDEX WARN_LOG APT_SANDBOX PKG_CACHE
 process_pkg() {
     local pkg=$1
     local retries=2
     local count=0
     
-    # 1. ¿Está en base?
+    # 1. ¿Está en base? (Inmutabilidad estricta)
     if grep -q "^${pkg}$" "$BASE_PKGS_FILE"; then return 0; fi
 
     # 2. Buscar en índice de Pool1
@@ -123,18 +158,26 @@ process_pkg() {
     if [ -n "$DEB_PATH" ] && [ -f "$DEB_PATH" ]; then
         cp "$DEB_PATH" "$ISO_HOME/pool/local/" || echo "❌ Error copiando $pkg desde Pool1" >> "$WARN_LOG"
     else
-        # 3. Descarga con Re-intento
-        while [ "$count" -le "$retries" ]; do
-            if (cd "$ISO_HOME/pool/local/" && apt-get download "$pkg" -qq 2>/dev/null); then
-                # Verificar que el archivo existe
-                if ls "$ISO_HOME/pool/local/${pkg}_"*.deb >/dev/null 2>&1; then
-                    return 0
+        # 3. Buscar en Cache persistente
+        local CACHED_DEB=$(ls "$PKG_CACHE/${pkg}_"*.deb 2>/dev/null | head -n1 || true)
+        if [ -n "$CACHED_DEB" ] && [ -f "$CACHED_DEB" ]; then
+            cp "$CACHED_DEB" "$ISO_HOME/pool/local/" || echo "❌ Error copiando $pkg desde Cache" >> "$WARN_LOG"
+        else
+            # 4. Descarga con Sandbox APT y Re-intento
+            while [ "$count" -le "$retries" ]; do
+                # Descargar a cache primero
+                if (cd "$PKG_CACHE" && apt-get -c "$APT_SANDBOX/apt.conf" download "$pkg" -qq 2>/dev/null); then
+                    local NEW_DEB=$(ls "$PKG_CACHE/${pkg}_"*.deb 2>/dev/null | head -n1 || true)
+                    if [ -n "$NEW_DEB" ]; then
+                        cp "$NEW_DEB" "$ISO_HOME/pool/local/"
+                        return 0
+                    fi
                 fi
-            fi
-            ((count++))
-            [ "$count" -le "$retries" ] && sleep 1
-        done
-        echo "❌ No disponible tras $retries reintentos: $pkg" >> "$WARN_LOG"
+                ((count++))
+                [ "$count" -le "$retries" ] && sleep 1
+            done
+            echo "❌ No disponible tras $retries reintentos (Sandbox): $pkg" >> "$WARN_LOG"
+        fi
     fi
 }
 export -f process_pkg
@@ -166,5 +209,5 @@ $(find "dists/excalibur/local/binary-amd64" -type f -name "Packages*" -printf "%
 done)
 EOF
 
-rm -rf "$EXTRACT_DIR"
+rm -rf "$EXTRACT_DIR" "$APT_SANDBOX"
 echo "✅ Módulo 04 finalizado exitosamente."
