@@ -34,7 +34,7 @@ for arg in "$@"; do
 done
 
 if [ "$CLEAN_MODE" = true ]; then
-    echo "   🧹 [Clean] Vaciando caché de paquetes ($PKG_CACHE)..."
+    echo "[Clean] Vaciando caché de paquetes ($PKG_CACHE)..."
     # Borrar solo archivos .deb para no romper el directorio si está montado o algo similar
     find "$PKG_CACHE" -name "*.deb" -type f -delete
 fi
