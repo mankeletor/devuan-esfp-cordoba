@@ -9,6 +9,8 @@ custom_esfp/
 isohome/
 temp_initrd/
 verify_initrd/
+pkg_cache/
+
 
 # --------------------
 # ARCHIVOS PESADOS / BINARIOS

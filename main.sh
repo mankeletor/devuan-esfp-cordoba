@@ -4,7 +4,7 @@
 # Filosofía: KISS / Modular
 set -euo pipefail
 
-VERSION="0.99rc27"
+VERSION="1.0rc1"
 export BASE_DIR="$(pwd)"
 
 # 0. Manejo de Argumentos

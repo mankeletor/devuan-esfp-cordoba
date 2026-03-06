@@ -1,114 +1,92 @@
 #!/bin/bash
-LOG="/var/log/custom-postinst.log"
-echo "$(date '+%Y-%m-%d %H:%M:%S') - postinst_final.sh INICIADO (PID $$  )" > "$LOG"
-echo "Entorno: PATH=$PATH" >> "$LOG"
-echo "Usuario: $(whoami), Dir: $(pwd)" >> "$LOG"
-set -x  # verbose mode temporal para debug (muestra cada comando ejecutado)
+# =========================================================
+# postinst_final.sh - Versión Final Blindada (v1.0rc1)
+# ESFP Córdoba - Optimizado para Netbooks (4GB RAM)
+# =========================================================
 
-echo "=== Optimizando sistema para netbooks ESFP Córdoba (4GB RAM) ==="
+LOG="/var/log/custom-postinst.log"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - postinst_final.sh INICIADO" > "$LOG"
+set -x  # Modo debug
+
+echo "=== Optimizando sistema para ESFP Córdoba ==="
 
 # 1. Idioma y locales
 echo "es_AR.UTF-8 UTF-8" > /etc/locale.gen
 locale-gen es_AR.UTF-8
 update-locale LANG=es_AR.UTF-8
 
-# 2. Instalación forzada de paquetes manuales (mejor debug)
+# 2. Instalación de paquetes desde Repositorio Local/Mirror
 if [ -f /root/pkgs_manual.txt ]; then
-    echo "=== Procesando pkgs_manual.txt ==="
     LISTA_PKGS=$(cat /root/pkgs_manual.txt | tr '\n' ' ' | sed 's/  */ /g')
-    
-    echo "Actualizando fuentes APT..."
-    apt-get update || { echo "ERROR: apt update falló - chequeá sources.list y repo local"; }
-
-    echo "Instalando paquetes manuales..."
+    echo "Instalando paquetes: $LISTA_PKGS"
+    apt-get update || echo "⚠️ Falló update local/mirror"
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-broken $LISTA_PKGS 2>&1 | tee /root/postinst_manual_pkgs.log
-    echo "Instalación manual completada. Ver /root/postinst_manual_pkgs.log para detalles/errores."
-else
-    echo "No se encontró /root/pkgs_manual.txt - saltando instalación manual."
 fi
 
-# 3. Reducir swappiness para RAM baja
+# 3. Optimización de Memoria (Swappiness)
 echo "vm.swappiness=10" >> /etc/sysctl.conf
 sysctl -p >/dev/null 2>&1 || true
 
-# 4. Desactivar servicios innecesarios
-SERVICIOS_INNECESARIOS="cups bluetooth whoopsie speech-dispatcher"
-for servicio in $SERVICIOS_INNECESARIOS; do
-    if [ -f /etc/init.d/$servicio ]; then
-        update-rc.d $servicio disable 2>/dev/null || true
-        echo "Servicio SysV $servicio desactivado"
-    fi
-done
-
+# 4. Limpieza de servicios innecesarios (OpenRC & SysV)
 if command -v rc-update >/dev/null; then
-    for servicio in bluetooth cups; do
-        rc-update del $servicio default 2>/dev/null || true
-    done
-    echo "Servicios OpenRC desactivados"
+    for s in bluetooth cups; do rc-update del $s default 2>/dev/null || true; done
 fi
 
-# 5. Configuración global MATE via dconf (system-db)
+# 5. Configuración de Escritorio MATE (dconf global)
 mkdir -p /etc/dconf/profile /etc/dconf/db/local.d
-
-# Perfil dconf (usuario + system local)
 cat > /etc/dconf/profile/user << 'EOF'
 user-db:user
 system-db:local
 EOF
 
-# Aplicar configuraciones desde el template inyectado
 if [ -f /root/esfp.dconf ]; then
-    echo "Aplicando configuración dconf desde template..."
-    # Asegurar que dconf-cli está disponible para la carga
-    apt-get install -y --no-install-recommends dconf-cli dbus-x11 || true
-    
-    # Inyectar el archivo de configuración directamente en la base de datos local
     cp /root/esfp.dconf /etc/dconf/db/local.d/01-esfp-custom
-    
-    # Compilar esquemas y actualizar DB
-    glib-compile-schemas /usr/share/glib-2.0/schemas/ || true
-    dconf update || echo "Error actualizando base de datos dconf"
-else
-    echo "⚠️ Warning: /root/esfp.dconf no encontrado. Saltando dconf."
+    dconf update || echo "Error dconf"
 fi
 
-# 5.1 Script de Primer Inicio (Firstrun)
-# Se ejecuta al primer login del usuario alumno (vía /etc/profile.d)
+# 5.1 Script de Primer Inicio (Silencioso y Robusto)
 cat > /etc/profile.d/esfp-firstrun.sh << 'EOF'
 #!/bin/bash
-# esfp-firstrun.sh - Tareas de limpieza y ajuste en el primer inicio
 MARKER="$HOME/.config/esfp-firstrun-done"
-
-# Solo ejecutar para el usuario alumno y una sola vez
 if [ "$USER" = "alumno" ] && [ ! -f "$MARKER" ]; then
-    echo "🚀 Iniciando tareas de primer inicio ESFP Córdoba..."
-    
-    # Asegurar que dconf tome el perfil global
-    if command -v dconf >/dev/null; then
-        dconf update
-    fi
-    
-    # Marcar como completado
+    FLOG="/tmp/esfp-firstrun.log"
+    # Sudo no interactivo para tareas de limpieza
+    sudo apt-get autoremove --purge -y > "$FLOG" 2>&1
+    sudo apt-get clean >> "$FLOG" 2>&1
     mkdir -p "$(dirname "$MARKER")"
     touch "$MARKER"
-    usermod -m -d /home/alumno alumno
-    echo "✅ Tareas de primer inicio completadas."
 fi
 EOF
 chmod 644 /etc/profile.d/esfp-firstrun.sh
 
-# 6. Protección de paquetes de AUDIO (evita que el instalador los purgue)
-echo "Protegiendo paquetes de audio..."
-apt-mark manual pulseaudio pulseaudio-utils pipewire pipewire-bin pipewire-pulse wireplumber libcanberra-pulse 2>/dev/null || true
+# 6. INSTALACIÓN DE PSEINT (Offline/Online)
+echo "--- Instalando PSeInt ---"
+INSTALL_DIR="/opt/pseint"
+cd /tmp
+wget --tries=2 --timeout=15 -O pseint.tgz "https://sitsa.dl.sourceforge.net/project/pseint/20250314/pseint-l64-20250314.tgz" || true
 
-# 7. Sudo para alumno (sin password)
+if [ -f pseint.tgz ]; then
+    tar xf pseint.tgz -C /opt/
+    cd $INSTALL_DIR
+    strip wxPSeInt pseint 2>/dev/null || true
+    cat > /usr/share/applications/pseint.desktop << EOF
+[Desktop Entry]
+Name=PSeInt
+Exec=$INSTALL_DIR/wxPSeInt
+Icon=$INSTALL_DIR/imgs/icon64.png
+Type=Application
+Categories=Development;Education;
+EOF
+fi
+
+# 7. Sudoers RESTRINGIDO (Solo gestión de paquetes)
+echo "Configurando sudo restringido..."
 if [ -d /etc/sudoers.d ]; then
-    echo "alumno ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/alumno
+    echo "alumno ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get, /usr/bin/apt-cache, /usr/bin/apt-mark, /usr/bin/dpkg" > /etc/sudoers.d/alumno
     chmod 440 /etc/sudoers.d/alumno
 fi
 
-# 7. Autologin LightDM (sin grupo extra)
-echo "Configurando autologin para alumno..."
+# 7.1 Autologin LightDM
 mkdir -p /etc/lightdm/lightdm.conf.d
 cat > /etc/lightdm/lightdm.conf.d/50-autologin.conf << EOF
 [Seat:*]
@@ -117,25 +95,30 @@ autologin-user-timeout=0
 autologin-session=mate
 EOF
 
-# 8. Nano como editor default (tu mejora robusta)
-if command -v update-alternatives >/dev/null; then
-    update-alternatives --set editor /bin/nano 2>/dev/null ||
-    update-alternatives --set editor /usr/bin/nano 2>/dev/null || true
-fi
+# 8. Editor por defecto
+update-alternatives --set editor /bin/nano 2>/dev/null || true
 
-# 9. Opcional: Asegurar rc.conf si no llegó desde initrd
-if [ -f /rc.conf ]; then
-    cp /rc.conf /etc/rc.conf
-    echo "rc.conf copiado desde inyección"
-fi
+# 9. Recuperar rc.conf si existe
+[ -f /rc.conf ] && cp /rc.conf /etc/rc.conf
 
-# 10. Limpieza agresiva
-echo "Limpiando paquetes y residuos..."
+# 10. ANTIGRAVITY AUTO-UPDATER & Limpieza
+echo "Configurando Antigravity..."
+apt-get install -y curl gnupg2 dirmngr --no-install-recommends
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://us-central1-apt.pkg.dev/doc/repo-signing-key.gpg | gpg --dearmor --yes -o /etc/apt/keyrings/antigravity-repo-key.gpg
+
+echo "deb [signed-by=/etc/apt/keyrings/antigravity-repo-key.gpg] https://us-central1-apt.pkg.dev/projects/antigravity-auto-updater-dev/ antigravity-debian main" > /etc/apt/sources.list.d/antigravity.list
+
+apt-get update && apt-get install -y antigravity
+
+# Asegurar el directorio home y el shell para el usuario alumno
+chsh -s /bin/bash alumno
+usermod -d /home/alumno -m alumno
+
+# Limpieza Final
 apt-get purge -y xterm 2>/dev/null || true
-apt-get autoremove --purge -y || true
-apt-get autoclean -y
+apt-get autoremove --purge -y
 apt-get clean
 
-# 11. Marca final
-echo "$(date '+%Y-%m-%d %H:%M:%S') - postinst_final.sh FINALIZADO OK" >> "$LOG"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - FINALIZADO OK" >> "$LOG"
 exit 0

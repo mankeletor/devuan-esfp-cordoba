@@ -55,23 +55,7 @@ mkdir -p "$APT_SANDBOX/etc/apt/preferences.d"
 mkdir -p "$APT_SANDBOX/var/log/apt"
 
 cat > "$APT_SANDBOX/etc/apt/sources.list" << EOF
-# Repositorios oficiales de Devuan Excalibur
-# Basado en la red de mirrors verificada por apt-panopticon.devuan.org
-
-# Mirror principal en Argentina (excelente rendimiento local)
-deb http://dev1mir.registrationsplus.net/devuan/merged excalibur main contrib non-free non-free-firmware
-deb http://dev1mir.registrationsplus.net/devuan/merged excalibur-updates main contrib non-free non-free-firmware
-deb http://dev1mir.registrationsplus.net/merged excalibur-security main contrib non-free non-free-firmware
-
-# Mirror secundario en Brasil (para redundancia regional)
-deb http://devuan.c3sl.ufpr.br/devuan/merged excalibur main contrib non-free non-free-firmware
-deb http://devuan.c3sl.ufpr.br/devuan/merged excalibur-updates main contrib non-free non-free-firmware
-deb http://devuan.c3sl.ufpr.br/merged excalibur-security main contrib non-free non-free-firmware
-
-# Mirror terciario en Alemania (alta velocidad, respaldo global)
-deb http://ftp.fau.de/devuan/merged excalibur main contrib non-free non-free-firmware
-deb http://ftp.fau.de/devuan/merged excalibur-updates main contrib non-free non-free-firmware
-deb http://ftp.fau.de/merged excalibur-security main contrib non-free non-free-firmware
+`$BASE_DIR/modules/3.5_build_source.sh "dev1mir.registrationsplus.net"`
 EOF
 
 # Inyectar llaves GPG del host para evitar errores de validación
@@ -117,6 +101,8 @@ fi
 # Inyección de paquetes CRÍTICOS (Declarativo)
 PAQUETES_CRITICOS=(
     sudo
+    wget
+    net-tools
     bash-completion
     libc6
     libgcc-s1
