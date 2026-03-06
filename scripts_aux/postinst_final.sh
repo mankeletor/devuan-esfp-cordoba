@@ -91,6 +91,7 @@ if [ "$USER" = "alumno" ] && [ ! -f "$MARKER" ]; then
     # Marcar como completado
     mkdir -p "$(dirname "$MARKER")"
     touch "$MARKER"
+    usermod -m -d /home/alumno alumno
     echo "✅ Tareas de primer inicio completadas."
 fi
 EOF
