@@ -54,10 +54,10 @@ mkdir -p "$APT_SANDBOX/var/cache/apt/archives/partial"
 mkdir -p "$APT_SANDBOX/etc/apt/preferences.d"
 mkdir -p "$APT_SANDBOX/var/log/apt"
 
-SOURCES_OUTPUT=$("$BASE_DIR/modules/3.5_build_source.sh" "dev1mir.registrationsplus.net" 2>/dev/null) || true
+SOURCES_OUTPUT=$("$BASE_DIR/modules/3.5_build_source.sh" "dev1mir.registrationsplus.net") || true
 if [ -z "$SOURCES_OUTPUT" ]; then
     echo "⚠️ Advertencia: 3.5_build_source.sh no generó salida. Usando sources.list manual."
-    SOURCES_OUTPUT="deb http://dev1mir.registrationsplus.net/devuan/merged excalibur main contrib non-free non-free-firmware"
+    SOURCES_OUTPUT="deb http://dev1mir.registrationsplus.net/devuan/merged ${RELEASE:-excalibur} main contrib non-free non-free-firmware"
 fi
 echo "$SOURCES_OUTPUT" > "$APT_SANDBOX/etc/apt/sources.list"
 
