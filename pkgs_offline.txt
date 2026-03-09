@@ -45,6 +45,7 @@ build-essential
 busybox
 bzip2
 ca-certificates
+ca-certificates-java
 caja
 caja-admin
 caja-common
@@ -115,6 +116,8 @@ debian-reference-common
 debian-reference-es
 debianutils
 deepsea-icon-theme
+default-jre
+default-jre-headless
 desktop-base
 desktop-file-utils
 devuan-keyring
@@ -199,6 +202,7 @@ gcc-14-x86-64-linux-gnu
 gcc-x86-64-linux-gnu
 gcr
 gcr4
+geogebra
 gettext-base
 ghostscript
 gimp
@@ -318,7 +322,10 @@ ispanish
 ispell
 iucode-tool
 iw
+java-common
 javascript-common
+junit
+junit4
 kbd
 keyboard-configuration
 klibc-utils
@@ -345,6 +352,7 @@ libao4
 libao-common
 libaom3
 libapache2-mod-dnssd
+libapache-pom-java
 libapparmor1
 libappstream5
 libappstream-glib8
@@ -368,6 +376,8 @@ libatasmart4
 libatk1.0-0t64
 libatk-bridge2.0-0t64
 libatkmm-1.6-1v5
+libatk-wrapper-java
+libatk-wrapper-java-jni
 libatomic1
 libatopology2t64
 libatrildocument3t64
@@ -482,6 +492,11 @@ libcolamd3
 libcolord2
 libcolorhug2
 libcom-err2
+libcommons-codec-java
+libcommons-collections3-java
+libcommons-logging-java
+libcommons-math-java
+libcommons-parent-java
 libconfig11
 libcpuinfo0
 libcpupower1
@@ -596,6 +611,16 @@ libfontembed1t64
 libfontenc1
 libfreeaptx0
 libfreehand-0.1-1
+libfreehep-graphics2d-java
+libfreehep-graphicsio-emf-java
+libfreehep-graphicsio-java
+libfreehep-graphicsio-pdf-java
+libfreehep-graphicsio-ps-java
+libfreehep-graphicsio-svg-java
+libfreehep-io-java
+libfreehep-swing-java
+libfreehep-util-java
+libfreehep-xml-java
 libfreetype6
 libfribidi0
 libfuse3-4
@@ -625,6 +650,7 @@ libgegl-0.4-0t64
 libgegl-common
 libgexiv2-2
 libgfortran5
+libgif7
 libgimp-3.0-0
 libgirepository-1.0-1
 libgl1
@@ -648,6 +674,7 @@ libgnutls-dane0t64
 libgoa-1.0-0b
 libgoa-1.0-common
 libgomp1
+libgoogle-gson-java
 libgpg-error0
 libgpg-error-l10n
 libgpgme11t64
@@ -701,6 +728,7 @@ libgusb2
 libgvc6
 libgvpr2
 libgxps2t64
+libhamcrest-java
 libhandy-1-0
 libharfbuzz0b
 libharfbuzz-gobject0
@@ -718,7 +746,9 @@ libhtml-form-perl
 libhtml-parser-perl
 libhtml-tagset-perl
 libhtml-tree-perl
+libhttpclient-java
 libhttp-cookies-perl
+libhttpcore-java
 libhttp-daemon-perl
 libhttp-date-perl
 libhttp-message-perl
@@ -758,10 +788,16 @@ libiw30t64
 libixml11t64
 libjack-jackd2-0
 libjansson4
+libjas-java
 libjavascriptcoregtk-4.1-0
+libjaxen-java
 libjbig0
 libjbig2dec0
+libjdom1-java
+libjfreechart-java
+libjfugue-java
 libjim0.83
+libjlatexmath-java
 libjpeg62-turbo
 libjs-mathjax
 libjson-c5
@@ -791,6 +827,7 @@ libldap2
 libldap-common
 libldb2
 liblerc4
+liblightcouch-java
 liblightdm-gobject-1-0
 liblilv-0-0
 liblirc-client0t64
@@ -799,6 +836,7 @@ liblmdb0
 liblocale-gettext-perl
 liblockfile1
 liblockfile-bin
+liblog4j2-java
 liblognorm5
 liblouis20
 liblouis-data
@@ -854,6 +892,7 @@ libmjpegutils-2.1-0t64
 libmm-glib0
 libmnl0
 libmodplug1
+libmongodb-java
 libmount1
 libmp3lame0
 libmpc3
@@ -876,6 +915,8 @@ libmypaint-1.5-1
 libmypaint-common
 libmysofa1
 libmythes-1.2-0
+libnb-org-openide-util-java
+libnb-org-openide-util-lookup-java
 libncurses6
 libncursesw6
 libndp0
@@ -1061,6 +1102,7 @@ libreoffice-uiconfig-writer
 libreoffice-writer
 libresid-builder0c2a
 librevenge-0.0-0
+librhino-java
 librist4
 librsvg2-2
 librsvg2-common
@@ -1096,6 +1138,7 @@ libsigc++-2.0-0v5
 libsigsegv2
 libsixel1
 libslang2
+libslf4j-java
 libsm6
 libsmartcols1
 libsmbclient0
@@ -1275,6 +1318,7 @@ libxcursor1
 libxcvt0
 libxdamage1
 libxdmcp6
+libxerces2-java
 libxext6
 libxfixes3
 libxfont2
@@ -1288,6 +1332,8 @@ libxkbregistry0
 libxklavier16
 libxml2
 libxmlb2
+libxml-commons-external-java
+libxml-commons-resolver1.1-java
 libxml-parser-perl
 libxmlsec1t64
 libxmlsec1t64-nss
@@ -1297,6 +1343,7 @@ libxmu6
 libxmuu1
 libxnnpack0.20241108
 libxnvctrl0
+libxom-java
 libxpm4
 libxpresent1
 libxrandr2
@@ -1404,6 +1451,7 @@ mate-user-share
 mate-user-share-common
 mate-utils
 mate-utils-common
+mathpiper
 mawk
 media-types
 mesa-libgallium
@@ -1436,6 +1484,8 @@ node-prismjs
 notification-daemon
 ntfs-3g
 ocl-icd-libopencl1
+openjdk-21-jre
+openjdk-21-jre-headless
 openrc
 openssh-client
 openssl
