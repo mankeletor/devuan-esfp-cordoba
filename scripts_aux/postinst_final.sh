@@ -201,15 +201,21 @@ flog "Limpieza final..."
 apt-get autoremove --purge -y 2>>"$FLOG" || true
 apt-get clean
 
-# --- Fijar HOME en terminal para usuario alumno ---
-ALUMNO_HOME="/home/alumno"
-ALUMNO_BASHRC="$ALUMNO_HOME/.bashrc"
-if [ -d "$ALUMNO_HOME" ] && ! grep -q "^cd$" "$ALUMNO_BASHRC" 2>/dev/null; then
-    echo -e "\n# Forzar inicio en HOME\ncd" >> "$ALUMNO_BASHRC"
-    chown alumno:alumno "$ALUMNO_BASHRC"
-    flog "Agregado 'cd' a .bashrc de alumno"
-fi
+flog "Configurando directorio inicial de terminal..."
+ALUMNO_BASHRC="/home/alumno/.bashrc"
+ALUMNO_PROFILE="/home/alumno/.bash_profile"
 
+# Crear si no existen
+touch "$ALUMNO_BASHRC" "$ALUMNO_PROFILE"
+
+# Solo redirige si arrancó en / (caso autologin LightDM)
+for f in "$ALUMNO_BASHRC" "$ALUMNO_PROFILE"; do
+    if ! grep -q "Forzar inicio en HOME" "$f"; then
+        echo -e "\n# Forzar inicio en HOME\n[ \"\$PWD\" = \"/\" ] && cd \"\$HOME\"" >> "$f"
+    fi
+done
+
+chown alumno:alumno "$ALUMNO_BASHRC" "$ALUMNO_PROFILE"
 # --- Auto-deshabilitarse ---
 flog "Deshabilitando servicio firstrun..."
 rc-update del esfp-firstrun default 2>/dev/null || true

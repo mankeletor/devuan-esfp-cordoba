@@ -111,9 +111,9 @@ PAQUETES_CRITICOS=(
     wget
     net-tools
     bash-completion
-    libc6
-    libgcc-s1
-    libeudev1
+    python3
+    python3-pip
+    python3-venv
     mate-menu
     mate-tweak
     mate-desktop-environment-extras
@@ -123,13 +123,19 @@ PAQUETES_CRITICOS=(
     curl
     vlc
     vlc-plugin-base
+    xclip
+    git
+    nodejs
+    npm
+    tree
+    unzip
+    simplescreenrecorder
     chromium
     network-manager
     wpasupplicant
     wireless-tools
     firmware-linux-nonfree
     intel-microcode
-    xserver-xorg-video-intel
     va-driver-all
     usb-modeswitch
     task-laptop
