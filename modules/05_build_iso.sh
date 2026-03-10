@@ -14,7 +14,7 @@ fi
 # Nombre del archivo ISO final
 ISO_FILENAME="${ISO_PREFIX}-$(date +%Y%m%d_%H%M).iso"
 
-# 1. Actualizar isolinux.cfg (Añadir entrada ESFP Córdoba sin destruir original)
+# 1. Actualizar isolinux.cfg (Añadir entrada CorbexOS sin destruir original)
 echo "   Actualizando isolinux.cfg para incluir preseed..."
 
 cat $BASE_DIR/templates/isolinux.cfg > "$ISO_HOME/boot/isolinux/isolinux.cfg"

@@ -56,20 +56,20 @@ echo "   Inyectando preseed, postinst, rc.conf y listas de paquetes..."
 cp "$BASE_DIR/preseed.cfg" ./preseed.cfg
 cp "$BASE_DIR/scripts_aux/postinst_final.sh" ./postinst.sh
 cp "$BASE_DIR/templates/rc.conf" ./rc.conf
-cp "$BASE_DIR/templates/esfp.dconf" ./esfp.dconf
+cp "$BASE_DIR/templates/corbex.dconf" ./corbex.dconf
 
 # --- NUEVO: Script de intervención radical (finish-install) ---
 # Optimizado para RAM: solo lanza apt tras asegurar que el target tiene el repo local
 echo "   Configurando ejecución radical en finish-install..."
 mkdir -p usr/lib/finish-install.d
-cat > usr/lib/finish-install.d/99esfp-custom << 'EOF'
+cat > usr/lib/finish-install.d/99corbex-custom << 'EOF'
 #!/bin/sh
-# 99esfp-custom - Inyectado por ESFP Córdoba Modular
+# 99corbex-custom - Inyectado por CorbexOS Modular
 echo "🔥 [Radical] Asegurando persistencia de scripts en /target..."
 cp /postinst.sh /target/root/postinst.sh
 chmod +x /target/root/postinst.sh
 EOF
-chmod +x usr/lib/finish-install.d/99esfp-custom
+chmod +x usr/lib/finish-install.d/99corbex-custom
 
 # 4. Actualizar preseed con la lista "Cerebro" (PKGS_MANUAL)
 PKGS_STRING=$(echo "${PAQUETES[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')

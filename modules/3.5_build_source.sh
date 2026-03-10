@@ -1,5 +1,5 @@
 #!/bin/bash
-# ESFP Córdoba - Generador Dinámico de Repositorios
+# CorbexOS - Generador Dinámico de Repositorios
 # Uso: ./3.5_build_source.sh "deb.devuan.nz"
 #
 # Sin set -e: errores manejados explícitamente para no interferir con el discovery.
@@ -95,7 +95,7 @@ done
 COMP_STRING="${FINAL_COMPONENTS[*]}"
 
 echo "############################################"
-echo "# Generado por ESFP Córdoba Discovery Tool #"
+echo "# Generado por CorbexOS Discovery Tool #"
 echo "############################################"
 echo "deb $BASE_URL $RELEASE $COMP_STRING"
 for suite in "${EXTRA_SUITES[@]}"; do

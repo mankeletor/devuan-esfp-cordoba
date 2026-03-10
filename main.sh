@@ -1,5 +1,5 @@
 #!/bin/bash
-# main.sh - Orquestador ESFP Córdoba ISO Customizer
+# main.sh - Orquestador CorbexOS ISO Customizer
 # Licencia: GNU GPL v3
 # Filosofía: KISS / Modular
 set -euo pipefail

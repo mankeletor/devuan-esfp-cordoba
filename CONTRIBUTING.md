@@ -1,4 +1,4 @@
-# Guía de Contribución - ESFP Córdoba ISO Customizer 📀🇦🇷
+# Guía de Contribución - CorbexOS ISO Customizer 📀🇦🇷
 
 ¡Gracias por interesarte en mejorar la netbook escolar! Este proyecto busca crear una imagen de Devuan optimizada, ligera y 100% automatizada.
 

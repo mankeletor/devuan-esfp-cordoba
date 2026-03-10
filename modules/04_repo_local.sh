@@ -17,7 +17,7 @@ fi
 
 # Redirección de logs (Cerebro v0.99rc25)
 # Usar WORKDIR de config.env o fallback al directorio actual
-WORKDIR="${WORKDIR:-$BASE_DIR/custom_esfp}"
+WORKDIR="${WORKDIR:-$BASE_DIR/custom_corbex}"
 PKG_CACHE="$BASE_DIR/pkg_cache"
 LOG_FILE="$WORKDIR/logs/04_repo_local.log"
 WARN_LOG="$WORKDIR/logs/warnings.log"
@@ -251,14 +251,14 @@ zcat dists/excalibur/local/binary-amd64/Packages.gz > dists/excalibur/local/bina
 # Generar archivo Release con checksums MD5
 echo "   Generando Release con checksums MD5..."
 cat > "dists/excalibur/local/binary-amd64/Release" << EOF
-Origin: Devuan ESFP Córdoba
-Label: ESFP Córdoba Local Repo
+Origin: Devuan CorbexOS
+Label: CorbexOS Local Repo
 Suite: excalibur
 Codename: excalibur
 Date: $(date -Ru)
 Architectures: amd64
 Components: local
-Description: Paquetes Complementarios ESFP Córdoba
+Description: Paquetes Complementarios CorbexOS
 
 MD5Sum:
 $(find "dists/excalibur/local/binary-amd64" -type f \( -name "Packages*" -o -name "Release" \) -printf "%P\n" | grep -v "^Release$" | while read -r f; do
