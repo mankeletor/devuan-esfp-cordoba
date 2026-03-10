@@ -83,3 +83,5 @@ desktop.ini
 # PUNTOS DE MONTAJE (no deben commitearse)
 # --------------------
 /mnt/
+extras/
+antigravity_*.deb
