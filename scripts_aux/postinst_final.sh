@@ -198,6 +198,15 @@ apt-get autoremove --purge -y 2>>"$FLOG" || true
 
 apt-get clean
 
+# --- Actualizar Fecha y Hora ---
+flog "Sincronizando reloj por NTP..."
+if command -v ntpdate >/dev/null; then
+    ntpdate -u pool.ntp.org || flog "⚠️ Falló sincronización de hora"
+    hwclock --systohc || true
+else
+    flog "⚠️ ntpdate no instalado"
+fi
+
 # --- Auto-deshabilitarse ---
 flog "Deshabilitando servicio firstrun..."
 rc-update del corbex-firstrun default 2>/dev/null || true
