@@ -79,7 +79,9 @@ fi
 log "Configurando sudo restringido..."
 if [ -d /etc/sudoers.d ]; then
     cat > /etc/sudoers.d/alumno << 'EOF'
-alumno ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get, /usr/bin/apt-cache, /usr/bin/apt-mark, /usr/bin/dpkg
+alumno ALL=(ALL) NOPASSWD: /usr/bin/apt, /usr/bin/apt-get, \
+/usr/bin/apt-cache, /usr/bin/apt-mark, /usr/bin/dpkg, /sbin/reboot, \
+/sbin/shutdown, /sbin/poweroff
 EOF
     chmod 440 /etc/sudoers.d/alumno
 fi
@@ -113,31 +115,14 @@ else
 fi
 
 # ─────────────────────────────────────────────
-# 10. Configurar usuario alumno (✅ chroot)
-# ─────────────────────────────────────────────
-log "Configurando usuario alumno..."
-chsh -s /bin/bash alumno
-usermod -d /home/alumno -m alumno 2>/dev/null || true
-
-# Configurar directorio inicial de terminal
-log "Configurando directorio inicial de terminal..."
-ALUMNO_BASHRC="/home/alumno/.bashrc"
-ALUMNO_PROFILE="/home/alumno/.bash_profile"
-touch "$ALUMNO_BASHRC" "$ALUMNO_PROFILE"
-for f in "$ALUMNO_BASHRC" "$ALUMNO_PROFILE"; do
-    if ! grep -q "Forzar inicio en HOME" "$f"; then
-        echo -e "\n# Forzar inicio en HOME\n[ \"\$PWD\" = \"/\" ] && cd \"\$HOME\"" >> "$f"
-    fi
-done
-chown alumno:alumno "$ALUMNO_BASHRC" "$ALUMNO_PROFILE"
-
-# ─────────────────────────────────────────────
 # 11. Limpieza parcial (✅ seguro en chroot)
 #     apt-get autoremove va en firstrun
 # ─────────────────────────────────────────────
 log "Limpieza parcial..."
 apt-get purge -y xterm 2>/dev/null || true
 apt-get clean
+rc-update add openntpd default
+rc-service openntpd start
 
 # ─────────────────────────────────────────────
 # 12. Instalar PSeInt offline desde ISO
@@ -207,6 +192,7 @@ flog() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$FLOG"; }
 # --- Limpieza final (seguro con sistema arrancado) ---
 flog "Limpieza final..."
 apt-get autoremove --purge -y 2>>"$FLOG" || true
+
 apt-get clean
 
 # --- Auto-deshabilitarse ---

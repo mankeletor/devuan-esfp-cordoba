@@ -109,6 +109,8 @@ fi
 PAQUETES_CRITICOS=(
     sudo
     wget
+    ntpsec-ntpdate
+    openntpd
     net-tools
     bash-completion
     python3
