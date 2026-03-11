@@ -97,6 +97,7 @@ validate_component() {
         echo "FAIL:$comp:$status"
     fi
 }
+export CURL_TIMEOUT CURL_MAX_REDIRS
 export -f http_status validate_component
 
 VALIDATION_RESULTS=()
