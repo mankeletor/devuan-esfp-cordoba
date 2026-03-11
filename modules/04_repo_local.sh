@@ -139,7 +139,6 @@ PAQUETES_CRITICOS=(
     tree
     unzip
     simplescreenrecorder
-    chromium
     network-manager
     wpasupplicant
     wireless-tools
