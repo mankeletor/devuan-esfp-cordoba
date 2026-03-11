@@ -30,8 +30,8 @@ update-locale LANG=es_AR.UTF-8
 # ─────────────────────────────────────────────
 # 2. Paquetes manuales (✅ repos ya configurados)
 # ─────────────────────────────────────────────
-if [ -f /root/pkgs_manual.txt ]; then
-    LISTA_PKGS=$(tr '\n' ' ' < /root/pkgs_manual.txt | sed 's/  */ /g')
+if [ -f /root/pkgs_install.txt ]; then
+    LISTA_PKGS=$(tr '\n' ' ' < /root/pkgs_install.txt | sed 's/  */ /g')
     log "Instalando paquetes: $LISTA_PKGS"
     apt-get update || log "⚠️ Falló update local/mirror"
     # shellcheck disable=SC2086 # Word splitting intencional: lista de paquetes
@@ -200,8 +200,8 @@ apt-get clean
 
 # --- Actualizar Fecha y Hora ---
 flog "Sincronizando reloj por NTP..."
-if command -v ntpdate >/dev/null; then
-    ntpdate -u pool.ntp.org || flog "⚠️ Falló sincronización de hora"
+if command -v ntpsec-ntpdate >/dev/null; then
+    ntpsec-ntpdate -u pool.ntp.org || flog "⚠️ Falló sincronización de hora"
     hwclock --systohc || true
 else
     flog "⚠️ ntpdate no instalado"

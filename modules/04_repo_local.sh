@@ -151,6 +151,9 @@ PAQUETES_CRITICOS=(
 )
 PAQUETES_SEMILLA+=("${PAQUETES_CRITICOS[@]}")
 
+# Exportar la lista combinada (Manual + Críticos) para que module 03 la inyecte a la ISO.
+printf "%s\n" "${PAQUETES_SEMILLA[@]}" | sort -u > "$BASE_DIR/pkgs_install.txt"
+
 # 0.1 Resolución de Dependencias Recursivas (Cerebro v0.99rc27)
 echo "   Resolviendo dependencias recursivas mediante simulación APT..."
 # Extraer solo los nombres de paquetes que APT planea instalar

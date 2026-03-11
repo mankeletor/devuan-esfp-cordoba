@@ -11,24 +11,25 @@ if [ -z "$ISO_ORIGINAL" ]; then
     source "$SCRIPT_DIR/../config.env"
 fi
 
-# 1. Cargar paquetes desde pkgs_manual.txt (Selección manual para preseed)
-echo "   Cargando paquetes desde $PKGS_MANUAL_FILE..."
+# 1. Cargar paquetes desde pkgs_install.txt (Lista unificada pre-procesada)
+PKGS_INSTALL_FILE="$BASE_DIR/pkgs_install.txt"
+echo "   Cargando paquetes desde $PKGS_INSTALL_FILE..."
 PAQUETES=()
-if [ -f "$PKGS_MANUAL_FILE" ]; then
+if [ -f "$PKGS_INSTALL_FILE" ]; then
     while IFS= read -r line || [ -n "$line" ]; do
         # Saltar comentarios y líneas vacías
         [[ -z "$line" || "$line" =~ ^# ]] && continue
         
-        # Extraer nombre del paquete (asumiendo lista simple de apt-mark showmanual)
+        # Extraer nombre del paquete
         pkg=$(echo "$line" | awk '{print $1}' | sed 's/:.*//')
         
         # Validación básica de nombre de paquete
         if [[ "$pkg" =~ ^[a-z0-9][a-z0-9+.-]+$ ]]; then
             PAQUETES+=("$pkg")
         fi
-    done < "$PKGS_MANUAL_FILE"
+    done < "$PKGS_INSTALL_FILE"
 else
-    echo "❌ Error: $PKGS_MANUAL_FILE no encontrado."
+    echo "❌ Error: $PKGS_INSTALL_FILE no encontrado. Ejecutá el módulo 04 primero."
     exit 1
 fi
 
@@ -57,7 +58,7 @@ cp "$BASE_DIR/preseed.cfg" ./preseed.cfg
 cp "$BASE_DIR/scripts_aux/postinst_final.sh" ./postinst.sh
 cp "$BASE_DIR/templates/rc.conf" ./rc.conf
 cp "$BASE_DIR/templates/corbex.dconf" ./corbex.dconf
-cp "$BASE_DIR/pkgs_manual.txt" ./pkgs_manual.txt
+cp "$BASE_DIR/pkgs_install.txt" ./pkgs_install.txt
 
 # --- NUEVO: Script de intervención radical (finish-install) ---
 # Optimizado para RAM: solo lanza apt tras asegurar que el target tiene el repo local
