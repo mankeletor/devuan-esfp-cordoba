@@ -50,7 +50,7 @@ corbex-os/
 
 3. **Dependencias del sistema:**
    ```bash
-   sudo apt install xorriso cpio rsync isolinux
+   sudo apt install xorriso cpio rsync
    ```
 
 ### Instrucciones
@@ -81,10 +81,10 @@ Si no querés compilar la ISO por tu cuenta, podés descargar la versión establ
 
 ### ✅ Verificación de Integridad
 
-Una vez descargada la ISO, verificá que no esté corrupta con el archivo `.sha256` incluido:
+Una vez descargada la ISO, verificá que no esté corrupta con el archivo `.md5` incluido:
 
 ```bash
-sha256sum -c corbex-os.iso.sha256
+md5sum -c corbex-os.iso.md5
 ```
 
 ### 💾 Grabar en USB
