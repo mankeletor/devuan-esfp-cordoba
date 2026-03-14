@@ -1,42 +1,110 @@
-# Guía de Contribución - CorbexOS ISO Customizer 📀🇦🇷
+# Guía de Contribución — CorbexOS 📀🇦🇷
 
-¡Gracias por interesarte en mejorar la netbook escolar! Este proyecto busca crear una imagen de Devuan optimizada, ligera y 100% automatizada.
+Si llegaste hasta acá es porque el proyecto te interesa, y eso ya vale. CorbexOS es un esfuerzo para que las netbooks escolares de Córdoba arranquen con un sistema digno, completo y listo para usar — sin que un técnico tenga que configurar cada equipo a mano. Cualquier mejora suma.
 
-## 🚀 Cómo empezar
+---
 
-### 1. Requisitos previos
-Para colaborar en el desarrollo, necesitás un entorno Linux (preferentemente Debian/Devuan) con:
-*   `xorriso`, `squashfs-tools`, `cpio`, `wget`.
-*   `QEMU` para las pruebas de booteo.
-*   Al menos 10GB de espacio libre en disco.
+## 🚀 Cómo Empezar
 
-### 2. Clonar y Configurar
-1.  Cloná el repositorio.
-2.  Copiá el archivo de ejemplo: `cp config.env.example config.env`.
-3.  Editá `config.env` con las rutas locales de tus ISOs base.
+### Requisitos del Entorno de Build
 
-## 🛠️ Estructura de Trabajo
-El proyecto es Modular (KISS). No edites el `main.sh` a menos que sea necesario cambiar el flujo principal.
+Necesitás un sistema Linux (preferentemente Debian/Devuan) con:
 
-*   **Módulos (`/modules`)**: Cada script debe encargarse de una sola tarea (ej. extraer, inyectar, compilar). Si querés agregar una funcionalidad, creá un script `06_nombre.sh` y registralo en `main.sh`.
-*   **Plantillas (`/templates`)**: Aquí viven el `preseed.cfg` y el `postinst.sh`. Cualquier cambio en la configuración del escritorio MATE debe ir en `postinst.sh`.
+```bash
+sudo apt install xorriso cpio rsync wget curl dpkg-dev flatpak shellcheck qemu-system-x86
+```
 
-## 🧪 Ciclo de Pruebas (Testing)
-Antes de enviar un cambio, por favor verificá:
-1.  **Sintaxis**: Corré `shellcheck` sobre tus scripts de Bash.
-2.  **Booteo**: Generá la ISO y probala en QEMU.
-3.  **Paquetes**: Verificá que la lista en `pkgs.txt` no tenga dependencias rotas que detengan el instalador.
+Al menos **10GB de espacio libre** en disco para las ISOs base, el directorio de trabajo y la ISO generada.
 
-## 📬 Cómo enviar tus mejoras
-1.  Fork el proyecto.
-2.  Creá una rama (branch) para tu mejora: `git checkout -b mejora-sonido-intel`.
-3.  Hacé el Commit: Sé descriptivo (ej: `fix: corregir inyección de locales en postinst.sh`).
-4.  Abrí un Pull Request.
+### Configuración Inicial
 
-### Áreas prioritarias para colaborar:
-*   🔊 **Audio**: Mejora de los scripts de amplificación para hardware específico de netbooks Juana Manso / Conectar Igualdad.
-*   🔋 **Energía**: Optimización de consumo de batería en OpenRC.
-*   🎨 **Branding**: Arte visual de Corbex para el cargador de arranque (ISOLINUX).
+```bash
+git clone https://github.com/mankeletor/corbex-os.git
+cd corbex-os
+cp config.env.example config.env
+nano config.env   # Apuntar las rutas a las ISOs de Devuan Excalibur
+```
+
+---
+
+## 🛠️ Filosofía del Proyecto: KISS + Modular
+
+El proyecto está organizado en módulos independientes orquestados por `main.sh`. Cada módulo hace una sola cosa. Antes de tocar código, entendé el flujo:
+
+```
+main.sh → 01_check_deps → 02_extract_iso → 04_repo_local → 03_build_initrd → 05_build_iso
+```
+
+**Reglas básicas:**
+
+- **No edites `main.sh`** a menos que necesites cambiar el flujo de ejecución entre módulos.
+- **Nuevas funcionalidades** → creá un script `06_nombre.sh` en `/modules/` y registralo en `main.sh`.
+- **Configuración del escritorio MATE** → va en `templates/corbex.dconf` o en `scripts_aux/postinst_final.sh`.
+- **Paquetes nuevos** → agregá a `pkgs_manual_clean.txt`. El módulo 04 resuelve dependencias automáticamente.
+- **Extras offline** (apps que no están en repos Devuan) → el patrón es: descarga en `04_repo_local.sh` → instalación en `postinst_final.sh`. Ver cómo están implementados PSeInt, Antigravity y Chrome como referencia.
+
+---
+
+## 🧪 Ciclo de Pruebas
+
+Antes de enviar un cambio, verificá:
+
+**1. Sintaxis**
+```bash
+shellcheck modules/*.sh scripts_aux/postinst_final.sh
+```
+
+**2. Build completo**
+```bash
+sudo bash main.sh
+```
+
+**3. Booteo en QEMU**
+```bash
+qemu-system-x86_64 -cdrom /ruta/a/corbex-os.iso -m 2048 -boot d
+```
+
+**4. Instalación completa** — dejá que el instalador corra hasta el final y verificá que el sistema arranque correctamente con autologin del usuario `alumno`.
+
+---
+
+## 📬 Cómo Enviar tus Mejoras
+
+1. Fork del repositorio.
+2. Creá una rama descriptiva:
+   ```bash
+   git checkout -b fix/audio-intel-hda
+   git checkout -b feat/agregar-scratch-flatpak
+   ```
+3. Commits descriptivos usando prefijos semánticos:
+   ```
+   fix: corregir inyección de locales en postinst_final.sh
+   feat: agregar instalación offline de Scratch vía Flatpak
+   docs: actualizar README con instrucciones de build
+   refactor: simplificar discovery de mirror en 3.5_build_source.sh
+   ```
+4. Abrí un Pull Request con descripción del cambio y, si aplica, resultado del test en QEMU.
+
+---
+
+## 🎯 Áreas Prioritarias
+
+Si no sabés por dónde arrancar, estas son las áreas donde más se necesita trabajo:
+
+**🔊 Audio**
+Algunos modelos de netbooks Juana Manso / Conectar Igualdad tienen hardware de audio Intel HDA con volumen muy bajo por defecto. Mejorar la detección automática del hardware y aplicar los ajustes de ALSA correspondientes en el postinst.
+
+**🔋 Energía**
+Optimización de consumo de batería bajo OpenRC: `tlp`, `cpufrequtils`, gestión de suspensión. Las netbooks escolares no siempre tienen acceso a corriente durante la clase.
+
+**🎨 Branding**
+Arte visual para el cargador de arranque ISOLINUX (`/templates/isolinux.cfg`). El splash screen actual es texto ASCII — una imagen PNG 640x480 marcaría bastante la diferencia en la experiencia de instalación.
+
+**🧪 Testing automatizado**
+Script que levante la ISO en QEMU y verifique automáticamente que el sistema arrancó, que el usuario `alumno` tiene sesión activa y que los paquetes críticos están instalados.
+
+---
 
 ## ⚖️ Licencia
-Al contribuir, aceptás que tu código será liberado bajo la licencia **GNU GPL v3**.
+
+Al contribuir, aceptás que tu código será liberado bajo **GNU GPL v3**.
