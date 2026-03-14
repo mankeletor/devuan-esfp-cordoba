@@ -115,6 +115,54 @@ else
 fi
 
 # ─────────────────────────────────────────────
+# 10. Deshabilitar GNOME Keyring / MATE Keyring (✅ chroot)
+#     Evita el diálogo "Set password for default keyring"
+#     en entornos de autologin sin contraseña de sesión.
+#     Estrategia en dos capas:
+#       a) Override global via XDG autostart (afecta a todos los usuarios)
+#       b) Keyring vacío pre-creado para el usuario alumno
+# ─────────────────────────────────────────────
+log "Deshabilitando GNOME/MATE keyring..."
+
+# a) Deshabilitar autostart global de gnome-keyring
+#    Cubre los tres componentes que pueden disparar el diálogo
+AUTOSTART_DIR="/etc/xdg/autostart"
+for component in gnome-keyring-secrets gnome-keyring-ssh gnome-keyring-pkcs11; do
+    DESKTOP_FILE="${AUTOSTART_DIR}/${component}.desktop"
+    if [ -f "$DESKTOP_FILE" ]; then
+        # Agregar Hidden=true si no existe ya
+        if ! grep -q "^Hidden=true" "$DESKTOP_FILE"; then
+            echo "Hidden=true" >> "$DESKTOP_FILE"
+            log "  ↳ $component deshabilitado vía Hidden=true"
+        fi
+    fi
+done
+
+# b) Pre-crear keyring vacío y sin contraseña para el usuario alumno
+#    Esto evita el diálogo incluso si gnome-keyring arranca por otra vía
+#    (ej: aplicación que llama a libsecret directamente)
+KEYRING_DIR="/home/alumno/.local/share/keyrings"
+mkdir -p "$KEYRING_DIR"
+
+cat > "${KEYRING_DIR}/default.keyring" << 'KEYRING_EOF'
+[keyring]
+display-name=Default keyring
+ctime=0
+mtime=0
+lock-on-idle=false
+lock-after=false
+KEYRING_EOF
+
+echo "default.keyring" > "${KEYRING_DIR}/default"
+
+chown -R alumno:alumno "$KEYRING_DIR"
+chmod 700 "$KEYRING_DIR"
+chmod 600 "${KEYRING_DIR}/default.keyring"
+chmod 644 "${KEYRING_DIR}/default"
+
+log "Keyring deshabilitado ✅"
+
+# ─────────────────────────────────────────────
 # 11. Limpieza parcial (✅ seguro en chroot)
 #     apt-get autoremove va en firstrun
 # ─────────────────────────────────────────────
