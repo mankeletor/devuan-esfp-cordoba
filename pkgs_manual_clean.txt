@@ -5,6 +5,7 @@ libreoffice-l10n-es
 mythes-es
 unzip
 zip
+gnome-software-plugin-flatpak
 adduser
 alsa-utils
 apt
