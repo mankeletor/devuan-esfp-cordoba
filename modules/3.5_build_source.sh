@@ -2,7 +2,9 @@
 # CorbexOS - Generador Dinámico de Repositorios
 # Uso: ./3.5_build_source.sh "dev1mir.registrationsplus.net"
 #
+# Requiere: bash (usa export -f, arrays asociativos, process substitution)
 # Sin set -e: errores manejados explícitamente para no interferir con el discovery.
+#
 # Salidas:
 #   stdout → líneas "deb ..." listas para sources.list (sin comentarios)
 #   stderr → mensajes de log/error (prefijados con #)
@@ -13,6 +15,12 @@
 # --- 0. Verificar dependencias de entorno ---
 if ! command -v curl &>/dev/null; then
     echo "# Error: 'curl' no está instalado o no está en PATH." >&2
+    exit 2
+fi
+
+# Verificar bash explícitamente (export -f y arrays asociativos requieren bash)
+if [ -z "${BASH_VERSION:-}" ]; then
+    echo "# Error: Este script requiere bash, no sh u otro shell." >&2
     exit 2
 fi
 
@@ -27,7 +35,9 @@ fi
 # Valores por defecto (override por config.env o entorno)
 RELEASE="${RELEASE:-excalibur}"
 ARCH="${ARCH:-amd64}"
-CURL_TIMEOUT="${CURL_TIMEOUT:-8}"
+# Timeout aumentado a 12s para tolerar mirrors escolares lentos.
+# max-time = CURL_TIMEOUT * 3 (36s total por request)
+CURL_TIMEOUT="${CURL_TIMEOUT:-12}"
 CURL_MAX_REDIRS="${CURL_MAX_REDIRS:-3}"
 
 # Rutas conocidas del mirror — orden importante: más específica primero
@@ -37,6 +47,14 @@ WANTED_COMPONENTS=("main" "contrib" "non-free" "non-free-firmware")
 
 # Suites adicionales a detectar (cada una hace su propio discovery de ruta)
 EXTRA_SUITE_SUFFIXES=("-security" "-updates")
+
+# Directorio temporal para resultados de validación paralela (evita race conditions)
+VALIDATION_TMPDIR=""
+
+cleanup() {
+    [ -n "$VALIDATION_TMPDIR" ] && rm -rf "$VALIDATION_TMPDIR"
+}
+trap cleanup EXIT
 
 # --- 1. Leer mirror desde argumento ---
 MIRROR_HOST="${1:-}"
@@ -58,11 +76,28 @@ http_status() {
 }
 
 # --- Helper: encuentra la base URL de una suite dada ---
+# Si BASE_URL_HINT está definido, lo prueba primero antes del discovery completo
+# para evitar hasta 6 requests HTTP innecesarios en suites adicionales.
 # Imprime la URL encontrada a stdout, o nada si no la encuentra.
-# Uso: find_suite_base_url "excalibur-security"
+# Uso: find_suite_base_url "excalibur-security" ["https://mirror/devuan/merged"]
 find_suite_base_url() {
     local suite="$1"
+    local hint="${2:-}"
     local proto path test_url status
+
+    # Optimización: si se pasa un hint (la URL que ya funcionó para la suite
+    # principal), probarlo primero antes de hacer el discovery completo.
+    if [ -n "$hint" ]; then
+        test_url="${hint}/dists/${suite}/Release"
+        status=$(http_status "$test_url")
+        echo "# [hint] Probando $test_url → HTTP $status" >&2
+        if [ "$status" = "200" ]; then
+            echo "$hint"
+            return 0
+        fi
+    fi
+
+    # Discovery completo: 2 protocolos × 3 rutas = hasta 6 requests
     for proto in "${PROTOCOLS[@]}"; do
         for path in "${RUTAS[@]}"; do
             test_url="${proto}://${MIRROR_HOST}${path}/dists/${suite}/Release"
@@ -85,37 +120,47 @@ BASE_URL=$(find_suite_base_url "$RELEASE") || {
 }
 echo "# Suite principal encontrada: $BASE_URL" >&2
 
-# --- 3. Validación de componentes (en paralelo para evitar race conditions) ---
+# --- 3. Validación de componentes ---
+# Cada worker escribe su resultado en un archivo temporal propio para
+# evitar race conditions de escritura concurrente a stdout con xargs -P.
+# export -f requiere bash — verificado en sección 0.
 validate_component() {
-    local comp="$1" base_url="$2" release="$3" arch="$4"
+    local comp="$1" base_url="$2" release="$3" arch="$4" tmpdir="$5"
     local check_url="${base_url}/dists/${release}/${comp}/binary-${arch}/Packages.gz"
     local status
     status=$(http_status "$check_url")
     if [ "$status" = "200" ]; then
-        echo "OK:$comp"
+        echo "OK:$comp" > "$tmpdir/$comp"
     else
-        echo "FAIL:$comp:$status"
+        echo "FAIL:$comp:$status" > "$tmpdir/$comp"
     fi
 }
 export CURL_TIMEOUT CURL_MAX_REDIRS
 export -f http_status validate_component
 
-VALIDATION_RESULTS=()
-while IFS= read -r result; do
-    VALIDATION_RESULTS+=("$result")
-done < <(
-    printf "%s\n" "${WANTED_COMPONENTS[@]}" | \
-    xargs -I{} -P4 bash -c 'validate_component "$@"' _ {} "$BASE_URL" "$RELEASE" "$ARCH"
-)
+VALIDATION_TMPDIR=$(mktemp -d)
 
+# Lanzar workers en paralelo, cada uno escribe en su propio archivo
+printf "%s\n" "${WANTED_COMPONENTS[@]}" | \
+    xargs -I{} -P4 bash -c 'validate_component "$@"' _ \
+        {} "$BASE_URL" "$RELEASE" "$ARCH" "$VALIDATION_TMPDIR"
+
+# Leer resultados en orden determinístico (orden de WANTED_COMPONENTS)
 FINAL_COMPONENTS=()
 FAILED_COMPONENTS=()
 for comp in "${WANTED_COMPONENTS[@]}"; do
-    if printf "%s\n" "${VALIDATION_RESULTS[@]}" | grep -q "^OK:${comp}$"; then
+    result_file="$VALIDATION_TMPDIR/$comp"
+    if [ -f "$result_file" ]; then
+        result=$(cat "$result_file")
+    else
+        result="FAIL:${comp}:timeout"
+    fi
+
+    if [[ "$result" == "OK:${comp}" ]]; then
         FINAL_COMPONENTS+=("$comp")
         echo "# Componente validado: $comp" >&2
     else
-        status=$(printf "%s\n" "${VALIDATION_RESULTS[@]}" | grep "^FAIL:${comp}:" | cut -d: -f3)
+        status=$(echo "$result" | cut -d: -f3)
         FAILED_COMPONENTS+=("$comp")
         echo "# Componente no disponible (ignorado): $comp [HTTP ${status:-?}]" >&2
     fi
@@ -139,13 +184,15 @@ COMP_STRING="${FINAL_COMPONENTS[*]}"
 #   excalibur          → /devuan/merged/
 #   excalibur-updates  → /devuan/merged/
 #   excalibur-security → /merged          ← ruta distinta
+#
+# Optimización: se pasa BASE_URL como hint para evitar el discovery completo
+# cuando la suite adicional está en la misma ruta que la principal.
 declare -A SUITE_BASE_URLS
 
 for suffix in "${EXTRA_SUITE_SUFFIXES[@]}"; do
     SUITE_NAME="${RELEASE}${suffix}"
     echo "# Buscando suite adicional: $SUITE_NAME" >&2
-    SUITE_BASE=""
-    SUITE_BASE=$(find_suite_base_url "$SUITE_NAME") || true
+    SUITE_BASE=$(find_suite_base_url "$SUITE_NAME" "$BASE_URL") || true
     if [ -n "$SUITE_BASE" ]; then
         SUITE_BASE_URLS["$SUITE_NAME"]="$SUITE_BASE"
         echo "# Suite adicional encontrada: $SUITE_NAME → $SUITE_BASE" >&2
