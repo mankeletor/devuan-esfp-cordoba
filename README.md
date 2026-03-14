@@ -8,7 +8,7 @@ CorbexOS es una imagen ISO de **Devuan GNU/Linux (Excalibur)** construida desde 
 
 ## ¿Por qué Devuan y no Ubuntu/Mint?
 
-Las netbooks escolares tienen hardware acotado (4GB RAM, procesadores Intel de generaciones anteriores). Devuan corre sobre **OpenRC** en lugar de systemd, lo que se traduce en un arranque más rápido, menos procesos en memoria y más recursos disponibles para el alumno. El escritorio **MATE** completa la ecuación: liviano, estable y familiar para cualquiera que haya usado Windows o GNOME 2.
+Las netbooks escolares tienen hardware acotado (4GB RAM, procesadores Intel de generaciones anteriores). Devuan corre sobre **OpenRC** en lugar de systemd, lo que se traduce en un arranque más rápido, menos procesos en memoria y más recursos disponibles para el alumno. El escritorio **MATE** completa la ecuación: liviano, estable y familiar para cualquiera que haya usado Windows.
 
 ---
 
