@@ -1,3 +1,10 @@
+fonts-liberation
+hunspell-es
+hyphen-es
+libreoffice-l10n-es
+mythes-es
+unzip
+zip
 adduser
 alsa-utils
 apt

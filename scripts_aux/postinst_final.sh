@@ -51,11 +51,11 @@ fi
 # ─────────────────────────────────────────────
 # 4. Deshabilitar servicios innecesarios (✅ OpenRC)
 # ─────────────────────────────────────────────
-if command -v rc-update >/dev/null; then
-    for s in bluetooth cups; do
-        rc-update del $s default 2>/dev/null || true
-    done
-fi
+#if command -v rc-update >/dev/null; then
+#    for s in bluetooth cups; do
+#        rc-update del $s default 2>/dev/null || true
+#    done
+#fi
 
 # ─────────────────────────────────────────────
 # 5. Escritorio MATE - dconf global (✅ chroot)
