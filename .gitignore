@@ -11,6 +11,7 @@ temp_initrd/
 verify_initrd/
 pkg_cache/
 pkgs_offline.txt
+pkgs_install.txt
 *.bak
 # --------------------
 # ARCHIVOS PESADOS / BINARIOS

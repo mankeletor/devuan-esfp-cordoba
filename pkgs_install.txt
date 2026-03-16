@@ -114,7 +114,6 @@ task-mate-desktop
 tasksel
 task-spanish
 tree
-ttf-mscorefonts-installer
 tzdata
 unzip
 usb-modeswitch
