@@ -28,6 +28,27 @@ locale-gen es_AR.UTF-8
 update-locale LANG=es_AR.UTF-8
 
 # ─────────────────────────────────────────────
+# 1b. Generar sources.list dinámico
+# ─────────────────────────────────────────────
+log "Generando sources.list..."
+
+# CDROM siempre primero (funciona sin red)
+echo "deb file:///cdrom excalibur main contrib non-free non-free-firmware local" > /etc/apt/sources.list
+
+# Intentar generar entradas del mirror si hay red
+if [ -x /root/build_source.sh ]; then
+    SOURCES=$(/root/build_source.sh "dev1mir.registrationsplus.net" 2>/dev/null) || true
+    if [ -n "$SOURCES" ]; then
+        echo "$SOURCES" >> /etc/apt/sources.list
+        log "Mirror remoto agregado ✅"
+    else
+        log "⚠️ Sin red, usando solo CDROM"
+    fi
+else
+    log "⚠️ build_source.sh no encontrado, usando solo CDROM"
+fi
+
+# ─────────────────────────────────────────────
 # 2. Paquetes manuales (✅ repos ya configurados)
 # ─────────────────────────────────────────────
 if [ -f /root/pkgs_install.txt ]; then
