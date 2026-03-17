@@ -266,7 +266,7 @@ log "Instalando PSeInt offline..."
 if [ -s /root/extras/pseint.tgz ]; then
     tar xf /root/extras/pseint.tgz -C /opt/
     if [ -d /opt/pseint ]; then
-        strip /opt/pseint/wxPSeInt /opt/pseint/pseint 2>/dev/null || true
+        strip --strip-unneeded /opt/pseint/wxPSeInt /opt/pseint/pseint 2>/dev/null || true
         cat > /usr/share/applications/pseint.desktop << DESKTOP
 [Desktop Entry]
 Name=PSeInt
