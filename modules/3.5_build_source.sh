@@ -6,7 +6,7 @@
 # Sin set -e: errores manejados explícitamente para no interferir con el discovery.
 #
 # Salidas:
-#   stdout → líneas "deb ..." listas para sources.list (sin comentarios)
+#   stdout → líneas "deb ..." y "deb-src ..." listas para sources.list
 #   stderr → mensajes de log/error (prefijados con #)
 #   exit 0 → sources.list válido generado
 #   exit 1 → fallo crítico (mirror no encontrado o 'main' no disponible)
@@ -202,15 +202,17 @@ for suffix in "${EXTRA_SUITE_SUFFIXES[@]}"; do
 done
 
 # --- 5. Generar sources.list a stdout ---
-# SOLO líneas "deb ..." — sin comentarios, para que el caller capture limpiamente.
+# Líneas "deb" y "deb-src" sin comentarios, para que el caller capture limpiamente.
 echo "deb $BASE_URL $RELEASE $COMP_STRING"
+echo "deb-src $BASE_URL $RELEASE $COMP_STRING"
 
 for suffix in "${EXTRA_SUITE_SUFFIXES[@]}"; do
     SUITE_NAME="${RELEASE}${suffix}"
     if [ -n "${SUITE_BASE_URLS[$SUITE_NAME]:-}" ]; then
         echo "deb ${SUITE_BASE_URLS[$SUITE_NAME]} $SUITE_NAME $COMP_STRING"
+        echo "deb-src ${SUITE_BASE_URLS[$SUITE_NAME]} $SUITE_NAME $COMP_STRING"
     fi
 done
 
-echo "# sources.list generado: suite principal + ${#SUITE_BASE_URLS[@]} suites adicionales." >&2
+echo "# sources.list generado: suite principal + ${#SUITE_BASE_URLS[@]} suites adicionales (deb + deb-src)." >&2
 exit 0

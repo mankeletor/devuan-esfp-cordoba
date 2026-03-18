@@ -29,25 +29,46 @@ update-locale LANG=es_AR.UTF-8
 
 # ─────────────────────────────────────────────
 # 1b. Generar sources.list dinámico
+#     Estructura:
+#       /etc/apt/sources.list          → CDROM (siempre disponible)
+#       /etc/apt/sources.list.d/mirrors.list → mirror remoto (si hay red)
 # ─────────────────────────────────────────────
-log "Generando sources.list..."
+log "Generando sources.list y mirrors.list..."
 
-# CDROM siempre primero (funciona sin red)
+# CDROM siempre en sources.list (funciona sin red)
 echo "deb file:///cdrom excalibur main contrib non-free non-free-firmware local" > /etc/apt/sources.list
 
-# Intentar generar entradas del mirror si hay red
+# Crear directorio sources.list.d si no existe
+mkdir -p /etc/apt/sources.list.d
+
+# Generar mirrors.list desde corbex-build-sources.sh si hay red
 if [ -x /usr/local/sbin/corbex-build-sources.sh ]; then
     SOURCES=$(/usr/local/sbin/corbex-build-sources.sh \
     "dev1mir.registrationsplus.net" 2>/dev/null) || true
     if [ -n "$SOURCES" ]; then
-        echo "$SOURCES" >> /etc/apt/sources.list
-        log "Mirror remoto agregado ✅"
+        # Escribir a mirrors.list (separado de sources.list)
+        cat > /etc/apt/sources.list.d/mirrors.list << MIRRORS_EOF
+# CorbexOS - Mirror remoto generado automáticamente por corbex-build-sources
+# Generado: $(date '+%Y-%m-%d %H:%M:%S')
+$SOURCES
+MIRRORS_EOF
+        log "mirrors.list generado con mirror remoto ✅"
     else
-        log "⚠️ Sin red, usando solo CDROM"
+        # Sin red: crear mirrors.list vacío con comentario para que no rompa apt
+        cat > /etc/apt/sources.list.d/mirrors.list << MIRRORS_EOF
+# CorbexOS - Mirror remoto (sin red en instalación, configúrese manualmente)
+# Ejecutar: corbex-build-sources dev1mir.registrationsplus.net
+MIRRORS_EOF
+        log "⚠️ Sin red — mirrors.list creado vacío (solo comentarios)"
     fi
 else
-    log "⚠️ build_source.sh no encontrado, usando solo CDROM"
+    cat > /etc/apt/sources.list.d/mirrors.list << MIRRORS_EOF
+# CorbexOS - Mirror remoto (corbex-build-sources no encontrado)
+# Ejecutar: /usr/local/sbin/corbex-build-sources.sh dev1mir.registrationsplus.net
+MIRRORS_EOF
+    log "⚠️ corbex-build-sources.sh no encontrado — mirrors.list creado vacío"
 fi
+
 
 # ─────────────────────────────────────────────
 # 2. Paquetes manuales (✅ repos ya configurados)
@@ -260,6 +281,43 @@ fi
 log "PATH configurado ✅"
 
 # ─────────────────────────────────────────────
+# 11d. Fix directorio inicial del terminal MATE
+#      MATE Terminal (y LightDM autologin) a veces
+#      inician el shell con PWD=/ en vez de $HOME.
+#      Solución: detectar en .bashrc si PWD=/ y
+#      hacer cd $HOME automáticamente.
+#      Esto es más confiable que dconf working-directory
+#      porque funciona siempre, independiente de D-Bus.
+# ─────────────────────────────────────────────
+log "Configurando directorio inicial del terminal para alumno..."
+ALUMNO_HOME="/home/alumno"
+mkdir -p "$ALUMNO_HOME"
+
+# Crear .bashrc base si no existe (copia de /etc/skel)
+if [ ! -f "$ALUMNO_HOME/.bashrc" ] && [ -f /etc/skel/.bashrc ]; then
+    cp /etc/skel/.bashrc "$ALUMNO_HOME/.bashrc"
+fi
+
+# Agregar el fix al final del .bashrc (idempotente)
+if ! grep -q "corbex-homedir-fix" "$ALUMNO_HOME/.bashrc" 2>/dev/null; then
+    cat >> "$ALUMNO_HOME/.bashrc" << 'BASHRC_FIX'
+
+# CorbexOS: corbex-homedir-fix
+# Si el terminal abre con PWD=/ (bug de autologin+MATE Terminal),
+# ir al HOME automáticamente para no quedar en el directorio raíz.
+if [ "$PWD" = "/" ]; then
+    cd "$HOME" 2>/dev/null || true
+fi
+BASHRC_FIX
+    log "  ↳ Fix de directorio inicial agregado a .bashrc de alumno ✅"
+fi
+
+# Asegurar que .bashrc pertenece al usuario alumno
+chown alumno:alumno "$ALUMNO_HOME/.bashrc" 2>/dev/null || true
+chmod 644 "$ALUMNO_HOME/.bashrc"
+log "Directorio inicial del terminal configurado ✅"
+
+# ─────────────────────────────────────────────
 # 12. Instalar PSeInt offline desde ISO
 # ─────────────────────────────────────────────
 log "Instalando PSeInt offline..."
@@ -283,36 +341,62 @@ fi
 
 # ─────────────────────────────────────────────
 # 12b. Instalar Avidemux desde AppImage
+#      FUSE puede no estar disponible en el sistema base,
+#      por eso se extrae el AppImage y se ejecuta el binario
+#      directamente desde squashfs-root.
 # ─────────────────────────────────────────────
-log "Instalando Avidemux (AppImage)..."
+log "Instalando Avidemux (AppImage extraído)..."
 AVIDEMUX_APPIMAGE="/root/extras/avidemux.appimage"
 if [ -s "$AVIDEMUX_APPIMAGE" ]; then
     mkdir -p /opt/avidemux
     cp "$AVIDEMUX_APPIMAGE" /opt/avidemux/avidemux.appimage
     chmod +x /opt/avidemux/avidemux.appimage
     
-    # Crear lanzador .desktop
+    # Extraer AppImage (no requiere FUSE) en /opt/avidemux/squashfs-root/
+    cd /opt/avidemux
+    /opt/avidemux/avidemux.appimage --appimage-extract 2>/dev/null || \
+        log "⚠️ avidemux --appimage-extract falló"
+    cd /
+    
+    # Determinar el binario real dentro de squashfs-root
+    AVIDEMUX_BIN=""
+    for candidate in avidemuxJobServer avidemux3_qt5 avidemux3_jobs_qt5 AppRun; do
+        if [ -x "/opt/avidemux/squashfs-root/$candidate" ]; then
+            AVIDEMUX_BIN="/opt/avidemux/squashfs-root/$candidate"
+            break
+        fi
+    done
+    
+    # Wrapper que configura LD_LIBRARY_PATH y lanza el binario extraído
+    cat > /usr/local/bin/avidemux << 'WRAPPER'
+#!/bin/bash
+export LD_LIBRARY_PATH="/opt/avidemux/squashfs-root/usr/lib:/opt/avidemux/squashfs-root/lib:${LD_LIBRARY_PATH}"
+exec /opt/avidemux/squashfs-root/AppRun "$@"
+WRAPPER
+    chmod +x /usr/local/bin/avidemux
+    
+    # Extraer icono desde squashfs-root si existe
+    ICON_SRC=$(find /opt/avidemux/squashfs-root -name 'avidemux*.png' -o -name '*.png' 2>/dev/null | head -1)
+    if [ -n "$ICON_SRC" ]; then
+        cp "$ICON_SRC" /opt/avidemux/avidemux.png 2>/dev/null || true
+    else
+        ln -sf /usr/share/icons/hicolor/48x48/apps/applications-multimedia.png \
+            /opt/avidemux/avidemux.png 2>/dev/null || true
+    fi
+    
+    # Crear lanzador .desktop apuntando al wrapper
     cat > /usr/share/applications/avidemux.desktop << DESKTOP
 [Desktop Entry]
 Name=Avidemux
 Comment=Editor de video multi-propósito
-Exec=/opt/avidemux/avidemux.appimage
+Exec=/usr/local/bin/avidemux
 Icon=/opt/avidemux/avidemux.png
 Type=Application
 Categories=AudioVideo;Video;AudioVideoEditing;
 Terminal=false
 DESKTOP
     
-    # Descargar icono genérico si no existe
-    if [ ! -f /opt/avidemux/avidemux.png ]; then
-        # Usar icono de sistema como fallback
-        ln -s /usr/share/icons/hicolor/48x48/apps/applications-multimedia.png /opt/avidemux/avidemux.png 2>/dev/null || true
-    fi
-    
-    # Crear symlink en /usr/local/bin para lanzar desde terminal
-    ln -sf /opt/avidemux/avidemux.appimage /usr/local/bin/avidemux
-    
-    log "Avidemux instalado vía AppImage ✅"
+    log "Avidemux instalado (AppImage extraído) ✅"
 else
     log "⚠️ /root/extras/avidemux.appimage no encontrado"
 fi
@@ -426,12 +510,28 @@ apt-get clean
 rm -f /etc/apt/apt.conf.d/99corbex-firstrun
 
 # --- 3. Sincronización de hora (background, no bloqueante) ---
+#     El paquete en Devuan Excalibur se llama 'ntpsec-ntpdate'
+#     (reemplaza al obsoleto 'ntpdate') e instala el binario
+#     /usr/sbin/ntpdate como drop-in replacement.
+#     Fallback: sntp (de ntpsec) o chronyc si está disponible.
 (
     flog "Sincronizando hora vía NTP..."
-    if command -v ntpsec-ntpdate >/dev/null; then
-        timeout 15 ntpsec-ntpdate -u pool.ntp.org 2>/dev/null && hwclock --systohc 2>/dev/null && flog "Hora sincronizada ✅" || flog "⚠️ NTP falló o timeout"
+    if command -v ntpdate >/dev/null 2>&1; then
+        timeout 15 ntpdate -u pool.ntp.org 2>/dev/null \
+            && hwclock --systohc 2>/dev/null \
+            && flog "Hora sincronizada con ntpdate ✅" \
+            || flog "⚠️ ntpdate falló o timeout"
+    elif command -v sntp >/dev/null 2>&1; then
+        timeout 15 sntp -s pool.ntp.org 2>/dev/null \
+            && hwclock --systohc 2>/dev/null \
+            && flog "Hora sincronizada con sntp ✅" \
+            || flog "⚠️ sntp falló o timeout"
+    elif command -v chronyc >/dev/null 2>&1; then
+        chronyc makestep 2>/dev/null \
+            && flog "Hora sincronizada con chronyc ✅" \
+            || flog "⚠️ chronyc falló"
     else
-        flog "⚠️ ntpsec-ntpdate no disponible"
+        flog "⚠️ No hay cliente NTP disponible (ntpdate/sntp/chronyc)"
     fi
 ) &
 
