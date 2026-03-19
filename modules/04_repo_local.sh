@@ -359,7 +359,7 @@ if [ ! -s "$AVIDEMUX_APPIMAGE" ]; then
     echo "   Descargando Avidemux ${AVIDEMUX_VERSION} AppImage..."
     wget --tries=3 --timeout=120 --content-disposition \
         -O "$AVIDEMUX_APPIMAGE" \
-        "https://sourceforge.net/projects/avidemux/files/avidemux/${AVIDEMUX_VERSION}/${AVIDEMUX_APPIMAGE}/download" || {
+        "https://sourceforge.net/projects/avidemux/files/avidemux/${AVIDEMUX_VERSION}/avidemux_${AVIDEMUX_VERSION}.appImage/download" || {
         echo "⚠️ No se pudo descargar Avidemux AppImage" >> "$WARN_LOG"
         rm -f "$AVIDEMUX_APPIMAGE"
     }
