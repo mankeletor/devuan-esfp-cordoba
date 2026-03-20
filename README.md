@@ -1,6 +1,6 @@
 # 🐧 Corbex-OS (Córdoba Excalibur Operating System)
 
-> *"El año pasado customicé Linux Mint MATE para las notebooks escolares de las ESFP de Córdoba — equivalente a comprar un auto base y llevarlo a un taller de tuning según las especificaciones. Este año con CorbexOS, equivale a pedir el auto customizado directamente desde la fábrica."*
+> *"El año pasado customicé Linux Mint MATE para las notebooks escolares de las ESFP de Córdoba — equivalente a comprar un auto base y llevarlo a un taller de tuning según las especificaciones. Este año con CorbexOS, equivale a pedir el auto customizado directamente desde la fábrica. Así es, ¡pasamos del taller a la fábrica!"*
 
 CorbexOS es una imagen ISO de **Devuan GNU/Linux (Excalibur)** construida desde cero para las netbooks de las escuelas secundarias de Córdoba. No es una instalación manual ni un script de post-configuración: es una ISO que ya sale del horno con todo adentro — sistema, escritorio, software educativo, firmwares, configuración de red y usuarios. El docente o técnico graba en un USB, instala, y listo.
 
